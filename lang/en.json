@@ -5,7 +5,9 @@
     "loading": "Loading...",
     "offline": "Offline",
     "syncing": "Syncing...",
-    "synced": "Synced"
+    "synced": "Synced",
+    "sync_pending": "Pending…",
+    "realtime": "Real-time ●"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -16,7 +18,8 @@
     "share": "Share",
     "settings": "Settings",
     "info": "About",
-    "logout": "Logout"
+    "logout": "Logout",
+    "leave": "Leave Household"
   },
   "setup": {
     "title": "Welcome to Menap",
@@ -122,7 +125,14 @@
     "none": "No members in the household",
     "request_title": "Manager Request",
     "request_accept": "Accept",
-    "request_reject": "Reject"
+    "request_reject": "Reject",
+    "leave_btn": "Leave Household",
+    "leave_confirm": "Are you sure you want to leave this household?",
+    "payment_section": "Budget Payments",
+    "share_amount": "Share per member",
+    "paid": "Paid",
+    "unpaid": "Unpaid",
+    "request_text": "{name} is asking you to become the Manager."
   },
   "selection": {
     "title": "Select Date",
@@ -195,7 +205,8 @@
     "date_required": "Date required",
     "choose_member": "Choose a member",
     "calc_invalid": "Invalid value",
-    "email_exists": "This email is already used by another account."
+    "email_exists": "This email is already used by another account.",
+    "generic": "An error occurred."
   },
   "toast": {
     "budget_created": "Budget created!",
@@ -217,7 +228,10 @@
     "db_exported": "Database exported!",
     "household_joined": "You joined the household!",
     "already_member": "You are already in this household",
-    "qr_format_unknown": "Unknown QR format"
+    "qr_format_unknown": "Unknown QR format",
+    "left_household": "You have left the household",
+    "payment_updated": "Payment status updated",
+    "data_updated": "Data updated"
   },
   "months": [
     "Jan",

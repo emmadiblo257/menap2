@@ -2,733 +2,731 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <meta name="theme-color" content="#1B4332">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Menap - Budget Achataire</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="style.css?v=2.2">
+  <link rel="stylesheet" href="style.css">
 </head>
-<body>
-
-<!-- ═══════════════════════════════════════════════
-     LOADING OVERLAY
-     ═══════════════════════════════════════════════ -->
-<div id="loading-overlay" class="loading-overlay">
-  <div class="spinner"></div>
-  <span translate="app.loading">Chargement...</span>
-</div>
-
-<!-- ═══════════════════════════════════════════════
-     ONBOARDING
-     ═══════════════════════════════════════════════ -->
-<div id="onboarding-screen" class="onboarding-overlay hidden">
-  <div class="onboarding-card">
-    <!-- Logo -->
-    <div class="onboarding-logo"><i class="fas fa-wallet"></i></div>
-    <h2 translate="setup.title">Bienvenue sur Menap</h2>
-    <p style="text-align:center;font-size:13px;color:var(--text-muted);margin:4px 0 20px" translate="setup.desc">Gérez votre budget achataire familial.</p>
-
-    <!-- Onglets -->
-    <div class="onboarding-tabs">
-      <div class="tabs">
-        <div class="tab active" id="tab-onboard-create" onclick="setOnboardTab('create')" translate="setup.tab_create">Créer Profil</div>
-        <div class="tab" id="tab-onboard-login" onclick="setOnboardTab('login')" translate="setup.tab_login">Connexion</div>
-      </div>
-    </div>
-
-    <!-- ─── Créer profil ─── -->
-    <div id="onboard-create-section">
-      <!-- Photo -->
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
-        <div id="profile-pic-preview" class="avatar-preview">
-          <i class="fas fa-user" style="font-size:24px;color:var(--text-muted)"></i>
-        </div>
-        <div style="flex:1">
-          <label style="display:block;font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px" translate="setup.photo">Photo de profil</label>
-          <button style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border-color);background:var(--card-bg);color:var(--text-color);cursor:pointer;font-size:12px;font-weight:600" onclick="document.getElementById('profile-pic-input').click()">
-            <i class="fas fa-camera" style="margin-right:4px"></i><span translate="setup.photo_btn">Photo</span>
-          </button>
-          <input type="file" id="profile-pic-input" accept="image/*" style="display:none">
-        </div>
-      </div>
-
-      <!-- Langue + Devise -->
-      <div style="display:flex;gap:10px;margin-bottom:14px">
-        <div class="setup-group" style="flex:1">
-          <label translate="setup.select_lang">Langue</label>
-          <select id="setup-lang-select">
-            <option value="fr">Français</option>
-            <option value="en">English</option>
-            <option value="rn">Kirundi</option>
-            <option value="rw">Kinyarwanda</option>
-          </select>
-        </div>
-        <div class="setup-group" style="flex:1">
-          <label translate="setup.select_currency">Devise</label>
-          <select id="setup-currency-select">
-            <option value="BIF">BIF</option>
-            <option value="RWF">RWF</option>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="KES">KES</option>
-            <option value="TZS">TZS</option>
-            <option value="UGX">UGX</option>
-            <option value="XAF">XAF</option>
-            <option value="XOF">XOF</option>
-            <option value="NGN">NGN</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Prénom + Nom -->
-      <div style="display:flex;gap:10px;margin-bottom:14px">
-        <div class="form-group" style="flex:1;margin-bottom:0">
-          <label translate="setup.first_name">Prénom</label>
-          <input type="text" id="profile-first-name" translate-placeholder="setup.first_name" placeholder="Prénom" autocomplete="given-name">
-        </div>
-        <div class="form-group" style="flex:1;margin-bottom:0">
-          <label translate="setup.last_name">Nom</label>
-          <input type="text" id="profile-last-name" translate-placeholder="setup.last_name" placeholder="Nom" autocomplete="family-name">
-        </div>
-      </div>
-
-      <!-- Email -->
-      <div class="form-group">
-        <label translate="setup.email">Email</label>
-        <input type="email" id="profile-email" translate-placeholder="setup.email" placeholder="Email" autocomplete="email">
-      </div>
-
-      <!-- Mot de passe -->
-      <div class="form-group">
-        <label translate="setup.password">Mot de passe</label>
-        <div class="password-wrapper">
-          <input type="password" id="profile-password" translate-placeholder="setup.password_hint" placeholder="Mot de passe * (min. 4 caractères)" autocomplete="new-password" minlength="4">
-          <button type="button" class="toggle-pw-btn"><i class="fas fa-eye"></i></button>
-        </div>
-      </div>
-
-      <button class="primary-btn" id="setup-start-btn">
-        <i class="fas fa-rocket"></i>
-        <span translate="setup.start_btn">Commencer</span>
-      </button>
-    </div>
-
-    <!-- ─── Connexion ─── -->
-    <div id="onboard-login-section" class="hidden">
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;text-align:center" translate="login.desc">Connectez-vous avec votre email et mot de passe.</p>
-      <div class="form-group">
-        <label translate="login.email">Email</label>
-        <input type="email" id="login-email" translate-placeholder="login.email" placeholder="Email" autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label translate="login.password">Mot de passe</label>
-        <div class="password-wrapper">
-          <input type="password" id="login-password" translate-placeholder="login.password" placeholder="Mot de passe" autocomplete="current-password">
-          <button type="button" class="toggle-pw-btn"><i class="fas fa-eye"></i></button>
-        </div>
-      </div>
-      <button class="primary-btn" id="login-btn">
-        <i class="fas fa-sign-in-alt"></i>
-        <span translate="login.btn">Se connecter</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════
-     APP PRINCIPALE
-     ═══════════════════════════════════════════════ -->
+<body class="light-theme">
 <div id="app">
 
-  <!-- ─── Header ─── -->
-  <header class="app-header">
-    <div class="header-top">
-      <div class="header-left">
-        <button class="icon-btn" id="menu-btn" translate-aria="nav.dashboard"><i class="fas fa-bars"></i></button>
-        <span class="header-title" translate="app.title">Menap</span>
+  <!-- ═══ LOADING ═══ -->
+  <div id="loading" class="loading-overlay" style="display:none">
+    <div class="spinner"></div>
+    <span id="loading-text">Chargement...</span>
+  </div>
+
+  <!-- ═══ ONBOARDING ═══ -->
+  <div id="onboarding-screen" class="onboarding-overlay hidden">
+    <div class="onboarding-card">
+      <div class="onboarding-logo"><i class="fas fa-wallet"></i></div>
+      <h2 translate="setup.title">Bienvenue sur Menap</h2>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px" translate="setup.desc">Gérez votre budget achataire familial.</p>
+
+      <!-- Tabs Onboarding (2 onglets) -->
+      <div class="tabs onboarding-tabs">
+        <div class="tab active" id="tab-onboard-create">Créer Profil</div>
+        <div class="tab" id="tab-onboard-login">Connexion</div>
       </div>
-      <div class="header-actions">
-        <div class="sync-indicator">
-          <div class="sync-dot" id="sync-dot"></div>
-          <span id="sync-text" translate="app.synced">Synchronisé</span>
+
+      <!-- === Section Créer Profil === -->
+      <div id="onboard-create-section">
+        <div class="setup-group">
+          <label translate="setup.select_lang">Langue</label>
+          <select id="setup-lang-select">
+            <option value="fr" selected>Français</option>
+            <option value="rw">Kinyarwanda</option>
+            <option value="rn">Kirundi</option>
+            <option value="en">English</option>
+          </select>
         </div>
-        <button class="icon-btn" id="header-calc-btn" translate-aria="calculator.title"><i class="fas fa-calculator"></i></button>
-        <button class="icon-btn" id="search-btn" translate-aria="search.placeholder"><i class="fas fa-search"></i></button>
+        <div class="setup-group">
+          <label translate="setup.select_currency">Devise</label>
+          <select id="setup-currency-select">
+            <option value="BIF" selected>BIF (FBu)</option>
+            <option value="RWF">RWF (FRw)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="USD">USD ($)</option>
+          </select>
+        </div>
+        <div class="form-group-row">
+          <div class="form-group" style="flex:1;margin-bottom:0">
+            <label style="text-align:left;font-size:11px">Prénom *</label>
+            <input type="text" id="profile-first-name" placeholder="Jean">
+          </div>
+          <div class="form-group" style="flex:1;margin-bottom:0">
+            <label style="text-align:left;font-size:11px">Nom</label>
+            <input type="text" id="profile-last-name" placeholder="Ndiaye">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label style="text-align:left;font-size:11px">Email *</label>
+          <input type="email" id="profile-email" placeholder="jean@example.com">
+        </div>
+        <div class="form-group">
+          <label style="text-align:left;font-size:11px">Mot de passe * (min. 4 caractères)</label>
+          <div class="password-wrapper">
+            <input type="password" id="profile-password" placeholder="••••••">
+            <button type="button" class="toggle-pw-btn" onclick="togglePw('profile-password',this)"><i class="fas fa-eye"></i></button>
+          </div>
+        </div>
+        <div class="form-group" style="text-align:left;margin-bottom:16px">
+          <label style="font-size:11px">Photo de profil</label>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+            <div id="profile-pic-preview" class="avatar-preview">
+              <i class="fas fa-user" style="font-size:20px;color:var(--text-muted)"></i>
+            </div>
+            <input type="file" id="profile-pic-input" accept="image/*" style="display:none">
+            <button type="button" class="backup-btn" style="width:auto;padding:6px 12px;font-size:12px;margin:0" onclick="document.getElementById('profile-pic-input').click()"><i class="fas fa-camera"></i> Photo</button>
+          </div>
+        </div>
+        <button id="setup-start-btn" class="primary-btn">Commencer <i class="fas fa-arrow-right"></i></button>
+      </div>
+
+      <!-- === Section Connexion (email + mdp) === -->
+      <div id="onboard-login-section" class="hidden">
+        <button type="button" class="backup-btn-alt" id="onboard-join-btn" style="width:100%;margin-bottom:12px"><i class="fas fa-user-plus"></i> Cliquer pour rejoindre le ménage</button>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Connectez-vous avec votre email et mot de passe.</p>
+        <div class="form-group">
+          <label style="text-align:left;font-size:11px">Email</label>
+          <input type="email" id="login-email" placeholder="jean@example.com">
+        </div>
+        <div class="form-group">
+          <label style="text-align:left;font-size:11px">Mot de passe</label>
+          <div class="password-wrapper">
+            <input type="password" id="login-password" placeholder="••••••">
+            <button type="button" class="toggle-pw-btn" onclick="togglePw('login-password',this)"><i class="fas fa-eye"></i></button>
+          </div>
+        </div>
+        <div id="login-profile-hint" style="display:none;font-size:12px;font-weight:600;color:var(--primary-color);background:var(--primary-light,rgba(13,148,136,.1));border-radius:8px;padding:8px 12px;margin-bottom:10px;text-align:center"></div>
+        <button id="login-btn" class="primary-btn"><i class="fas fa-sign-in-alt"></i> Se connecter</button>
+      </div>
+
+      <!-- === Section QR / Fichier === -->
+
+    </div>
+  </div>
+
+  <!-- ═══ CAMÉRA QR ═══ -->
+  <div id="camera-qr-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-camera-qr"><i class="fas fa-arrow-left"></i></button>
+        <span>Scanner QR Code</span>
       </div>
     </div>
-    <div class="header-date-bar">
-      <button class="date-part-btn" id="header-year-selector">
-        <i class="fas fa-calendar-alt"></i><span>2026</span>
-      </button>
-      <span class="date-separator">›</span>
-      <button class="date-part-btn" id="header-month-selector">
-        <span>Jan</span>
-      </button>
-      <span class="date-separator">›</span>
-      <button class="date-part-btn" id="header-day-selector">
-        <span>01</span>
-      </button>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:8px">Cadrez le QR code dans le carré ci-dessous</p>
+      <div class="camera-viewport">
+        <video id="qr-camera-video" autoplay playsinline muted></video>
+        <canvas id="qr-camera-canvas"></canvas>
+        <div class="camera-scan-overlay"><div class="camera-scan-frame"><span></span><div class="camera-scan-laser"></div></div></div>
+      </div>
+      <div id="camera-qr-status" class="camera-scan-status"></div>
+      <button id="stop-camera-btn" class="danger-btn-alt" style="margin-top:12px"><i class="fas fa-stop"></i> Arrêter la caméra</button>
+    </div>
+  </div>
+
+  <!-- ═══ REJOINDRE MÉNAGE QR ═══ -->
+  <div id="join-request-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-join-request-modal"><i class="fas fa-arrow-left"></i></button>
+        <span>Rejoindre le ménage</span>
+      </div>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
+      <p style="font-size:14px;color:var(--text-color);font-weight:500">
+        Demandez au gestionnaire du ménage de scanner le QR code ci-dessous pour vous ajouter.
+      </p>
+      <div id="join-request-qrcode" class="qr-canvas-wrapper" style="margin:10px 0;background:white;padding:10px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
+      <p style="font-size:12px;color:var(--text-muted)">
+        Une fois que le gérant aura scanné ce code, cet écran se mettra à jour automatiquement pour vous permettre de compléter vos informations.
+      </p>
+      <div class="spinner" id="join-request-spinner" style="margin-top:10px"></div>
+      <button id="cancel-join-request-btn" class="danger-btn-alt" style="margin-top:10px"><i class="fas fa-times"></i> Annuler la demande</button>
+    </div>
+  </div>
+
+  <!-- ═══ COMPLÉTER PROFIL Modal ═══ -->
+  <div id="complete-profile-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <span>Compléter votre profil</span>
+      </div>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">
+        Votre demande d'adhésion a été validée. Veuillez compléter vos informations pour finaliser la création de votre compte.
+      </p>
+      <div class="form-group-row" style="display:flex;gap:12px">
+        <div class="form-group" style="flex:1;margin-bottom:0">
+          <label style="text-align:left;font-size:11px">Prénom *</label>
+          <input type="text" id="complete-first-name" placeholder="Jean">
+        </div>
+        <div class="form-group" style="flex:1;margin-bottom:0">
+          <label style="text-align:left;font-size:11px">Nom</label>
+          <input type="text" id="complete-last-name" placeholder="Ndiaye">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label style="text-align:left;font-size:11px">Email *</label>
+        <input type="email" id="complete-email" placeholder="jean@example.com">
+      </div>
+      <div class="form-group">
+        <label style="text-align:left;font-size:11px">Mot de passe * (min. 4 caractères)</label>
+        <div class="password-wrapper">
+          <input type="password" id="complete-password" placeholder="••••••">
+          <button type="button" class="toggle-pw-btn" onclick="togglePw('complete-password',this)"><i class="fas fa-eye"></i></button>
+        </div>
+      </div>
+      <div class="form-group" style="text-align:left;margin-bottom:16px">
+        <label style="font-size:11px">Photo de profil</label>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+          <div id="complete-pic-preview" class="avatar-preview" style="width:52px;height:52px;border-radius:50%;background:var(--card-bg);border:2px solid var(--primary-color);display:flex;align-items:center;justify-content:center;overflow:hidden">
+            <i class="fas fa-user" style="font-size:20px;color:var(--text-muted)"></i>
+          </div>
+          <input type="file" id="complete-pic-input" accept="image/*" style="display:none">
+          <button type="button" class="backup-btn" style="width:auto;padding:6px 12px;font-size:12px;margin:0" onclick="document.getElementById('complete-pic-input').click()"><i class="fas fa-camera"></i> Photo</button>
+        </div>
+      </div>
+      <button id="complete-profile-save-btn" class="primary-btn">Enregistrer et Continuer <i class="fas fa-arrow-right"></i></button>
+    </div>
+  </div>
+
+  <!-- ═══ RECHERCHE ═══ -->
+  <div id="search-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="search-input-container">
+        <button id="close-search"><i class="fas fa-arrow-left"></i></button>
+        <input type="text" id="search-input" placeholder="Rechercher budgets, achats...">
+      </div>
+    </div>
+    <div class="modal-body"><div id="search-results"></div></div>
+  </div>
+
+  <!-- ═══ PARAMÈTRES ═══ -->
+  <div id="settings-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-settings"><i class="fas fa-arrow-left"></i></button>
+        <span translate="settings.title">Paramètres</span>
+      </div>
+    </div>
+    <div class="modal-body settings-body">
+      <!-- Profil -->
+      <div class="setting-item">
+        <h3 style="font-size:14px;font-weight:700;color:var(--primary-color);margin-bottom:12px"><i class="fas fa-user-circle"></i> Profil</h3>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+          <img id="settings-profile-pic" src="" style="width:56px;height:56px;border-radius:50%;border:2px solid var(--primary-color);display:none;object-fit:cover">
+          <div id="settings-profile-pic-fallback" style="width:56px;height:56px;border-radius:50%;background:var(--primary-color);display:flex;align-items:center;justify-content:center;color:white;font-size:22px"><i class="fas fa-user"></i></div>
+          <div>
+            <div id="settings-profile-name" style="font-weight:700;font-size:16px">—</div>
+            <div id="settings-profile-email" style="font-size:12px;color:var(--text-muted)">—</div>
+          </div>
+        </div>
+        <!-- QR Auth -->
+        <button id="generate-qr-btn" class="backup-btn" style="margin-bottom:10px"><i class="fas fa-qrcode"></i> Générer QR d'Invitation</button>
+        <div id="settings-qr-container" class="qr-display-box hidden">
+          <div id="qrcode" class="qr-canvas-wrapper"></div>
+          <button id="download-qr-btn" class="backup-btn-alt" style="padding:6px 14px;font-size:12px;width:auto"><i class="fas fa-download"></i> Télécharger QR</button>
+          <p style="font-size:11px;color:var(--text-muted);text-align:center;max-width:220px">Partagez ce QR pour inviter quelqu'un à rejoindre votre ménage.</p>
+        </div>
+        <!-- Modifier le profil -->
+        <button id="edit-profile-btn" class="backup-btn-alt" style="margin-top:10px"><i class="fas fa-user-edit"></i> Modifier le profil</button>
+        <div id="edit-profile-section" style="display:none;margin-top:12px;padding:14px;border-radius:12px;background:var(--primary-light);border:1.5px solid var(--primary-color)">
+          <h4 style="font-size:13px;font-weight:700;color:var(--primary-dark);margin-bottom:12px"><i class="fas fa-edit"></i> Modifier le profil</h4>
+          <!-- Photo -->
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div id="edit-profile-pic-preview" style="width:52px;height:52px;border-radius:50%;background:var(--card-bg);border:2px solid var(--primary-color);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer" data-photo="">
+              <i class="fas fa-user" style="font-size:22px;color:var(--primary-color)"></i>
+            </div>
+            <button type="button" id="edit-profile-pic-btn" class="backup-btn-alt" style="font-size:12px;padding:6px 12px;width:auto"><i class="fas fa-camera"></i> Changer photo</button>
+            <input type="file" id="edit-profile-pic-input" accept="image/*" style="display:none">
+          </div>
+          <!-- Nom -->
+          <div class="form-group" style="margin-bottom:10px">
+            <label style="font-size:12px;font-weight:600">Prénom</label>
+            <input type="text" id="edit-profile-first-name" placeholder="Prénom" style="margin-top:4px">
+          </div>
+          <div class="form-group" style="margin-bottom:10px">
+            <label style="font-size:12px;font-weight:600">Nom</label>
+            <input type="text" id="edit-profile-last-name" placeholder="Nom (optionnel)" style="margin-top:4px">
+          </div>
+          <!-- Email -->
+          <div class="form-group" style="margin-bottom:10px">
+            <label style="font-size:12px;font-weight:600">Email</label>
+            <input type="email" id="edit-profile-email" placeholder="email@exemple.com" style="margin-top:4px">
+          </div>
+          <!-- Changer mot de passe -->
+          <div style="border-top:1px solid var(--border-color);padding-top:10px;margin-top:10px">
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Changer le mot de passe (optionnel)</p>
+            <div class="form-group" style="margin-bottom:8px">
+              <label style="font-size:12px;font-weight:600">Ancien mot de passe</label>
+              <input type="password" id="edit-profile-old-pw" placeholder="Ancien mot de passe" style="margin-top:4px">
+            </div>
+            <div class="form-group" style="margin-bottom:8px">
+              <label style="font-size:12px;font-weight:600">Nouveau mot de passe</label>
+              <input type="password" id="edit-profile-new-pw" placeholder="Nouveau mot de passe" style="margin-top:4px">
+            </div>
+            <div class="form-group" style="margin-bottom:10px">
+              <label style="font-size:12px;font-weight:600">Confirmer nouveau mot de passe</label>
+              <input type="password" id="edit-profile-new-pw2" placeholder="Confirmer" style="margin-top:4px">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button id="save-edit-profile-btn" class="save-btn" style="flex:1;font-size:13px;padding:9px"><i class="fas fa-check"></i> Enregistrer</button>
+            <button id="cancel-edit-profile-btn" class="backup-btn-alt" style="flex:1;font-size:13px;padding:9px"><i class="fas fa-times"></i> Annuler</button>
+          </div>
+        </div>
+        <!-- Supprimer compte -->
+        <div style="border-top:1px solid var(--border-color);padding-top:12px;margin-top:14px">
+          <button id="delete-account-btn" class="danger-btn-alt" style="font-size:12px;padding:9px 14px"><i class="fas fa-user-slash"></i> Supprimer mon compte</button>
+        </div>
+      </div>
+      <!-- Thème -->
+      <div class="setting-item">
+        <label translate="settings.theme_label">Thème</label>
+        <select id="theme-select" class="settings-select">
+          <option value="light" translate="settings.theme_light">Mode Clair</option>
+          <option value="dark" translate="settings.theme_dark">Mode Sombre</option>
+        </select>
+      </div>
+      <!-- Langue -->
+      <div class="setting-item">
+        <label translate="settings.lang_label">Langue</label>
+        <select id="lang-select" class="settings-select">
+          <option value="fr">Français</option>
+          <option value="rw">Kinyarwanda</option>
+          <option value="rn">Kirundi</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <!-- Devise -->
+      <div class="setting-item">
+        <label translate="settings.currency_label">Devise</label>
+        <select id="currency-select" class="settings-select">
+          <option value="BIF">BIF (FBu)</option>
+          <option value="RWF">RWF (FRw)</option>
+          <option value="EUR">EUR (€)</option>
+          <option value="USD">USD ($)</option>
+        </select>
+      </div>
+      <!-- Son -->
+      <div class="setting-item">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="sound-toggle" checked style="width:18px;height:18px;accent-color:var(--primary-color)">
+          <span>Activer les effets sonores</span>
+        </label>
+      </div>
+      <!-- Notifications -->
+      <div class="setting-item">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="notification-toggle" style="width:18px;height:18px;accent-color:var(--primary-color)">
+          <span>Activer les notifications</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MEMBRES DU MÉNAGE ═══ -->
+  <div id="members-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-members-modal"><i class="fas fa-arrow-left"></i></button>
+        <span>Membres du Ménage</span>
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- Inviter -->
+      <div id="members-invite-section" style="margin-bottom:20px">
+        <h3 style="font-size:14px;font-weight:700;color:var(--primary-color);margin-bottom:10px"><i class="fas fa-qrcode"></i> Inviter un Membre</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Partagez votre QR Code pour inviter un membre.</p>
+        <button id="generate-invite-qr-btn" class="backup-btn" style="margin-bottom:10px;width:100%"><i class="fas fa-qrcode"></i> Générer QR d'Invitation</button>
+        <div id="invite-qr-container" class="qr-display-box hidden">
+          <div id="invite-qrcode" class="qr-canvas-wrapper"></div>
+          <button id="download-invite-qr-btn" class="backup-btn-alt" style="padding:6px 12px;font-size:12px;width:auto"><i class="fas fa-download"></i> Télécharger</button>
+        </div>
+        <button type="button" class="backup-btn-alt" style="margin-top:10px;width:100%" onclick="startCameraQRScan('join')"><i class="fas fa-camera"></i> Scanner QR pour rejoindre un ménage</button>
+      </div>
+
+      <!-- Liste membres -->
+      <div id="members-list-section">
+        <h3 style="font-size:14px;font-weight:700;color:var(--primary-color);margin-bottom:10px"><i class="fas fa-users"></i> Membres (<span id="members-count">0</span>)</h3>
+        <div id="members-list"></div>
+      </div>
+
+      <!-- Transfert de privilège (gestionnaire) -->
+      <div id="privilege-transfer-section" style="display:none;border-top:1px solid var(--border-color);padding-top:15px;margin-top:15px">
+        <h3 style="font-size:14px;font-weight:700;color:var(--accent-color);margin-bottom:8px"><i class="fas fa-crown"></i> Transfert de Gestionnaire</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Sélectionnez un membre pour lui céder les privilèges.</p>
+        <select id="transfer-target-select" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-color);font-size:14px;margin-bottom:10px">
+          <option value="">-- Choisir un membre --</option>
+        </select>
+        <button id="transfer-privilege-btn" class="backup-btn" style="width:100%"><i class="fas fa-exchange-alt"></i> Céder les Privilèges</button>
+      </div>
+
+      <!-- Approbation de transfert -->
+      <div id="transfer-approval-section" style="display:none;background:var(--primary-light);border-radius:12px;padding:15px;margin-top:15px">
+        <h3 style="font-size:14px;font-weight:700;color:var(--primary-dark);margin-bottom:8px"><i class="fas fa-bell"></i> Demande de Gestionnaire</h3>
+        <p id="transfer-approval-text" style="font-size:13px;color:var(--primary-dark);margin-bottom:12px"></p>
+        <div style="display:flex;gap:10px">
+          <button id="approve-transfer-btn" class="save-btn" style="flex:1"><i class="fas fa-check"></i> Accepter</button>
+          <button id="reject-transfer-btn" class="danger-btn-alt" style="flex:1;margin:0"><i class="fas fa-times"></i> Refuser</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SAUVEGARDE / RESTAURATION ═══ -->
+  <div id="backup-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-backup-modal"><i class="fas fa-arrow-left"></i></button>
+        <span>Sauvegarde / Restauration</span>
+      </div>
+    </div>
+    <div class="modal-body settings-body">
+
+      <!-- EXPORT -->
+      <div class="setting-item backup-section">
+        <h3><i class="fas fa-download" style="margin-right:6px"></i>Exporter</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Sélectionnez les budgets à inclure dans le fichier .menap.</p>
+        <!-- Liste de sélection des budgets -->
+        <div id="export-budget-list" style="margin-bottom:12px;display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:12px;color:var(--text-muted);padding:8px;text-align:center"><i class="fas fa-spinner fa-spin"></i> Chargement…</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button id="export-select-all" class="backup-btn-alt" style="flex:1;font-size:12px;padding:7px"><i class="fas fa-check-double"></i> Tout</button>
+          <button id="export-select-none" class="backup-btn-alt" style="flex:1;font-size:12px;padding:7px"><i class="fas fa-times"></i> Aucun</button>
+        </div>
+        <button id="export-btn" class="backup-btn"><i class="fas fa-download"></i> Exporter .menap sélectionnés</button>
+        <button id="export-db-btn" class="backup-btn" style="margin-top:10px"><i class="fas fa-database"></i> Exporter Base SQLite (.db)</button>
+      </div>
+
+      <!-- IMPORT -->
+      <div class="setting-item backup-section" style="margin-top:20px">
+        <h3><i class="fas fa-upload" style="margin-right:6px"></i>Restaurer</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Importez depuis un fichier .menap — choisissez les budgets à restaurer.</p>
+        <div class="file-upload-wrapper">
+          <input type="file" id="import-file-input" accept=".menap,.dem,.sem,image/*" style="display:none">
+          <button id="import-btn-trigger" class="backup-btn-alt"><i class="fas fa-folder-open"></i> Choisir un fichier .menap</button>
+        </div>
+        <!-- Aperçu budgets du fichier -->
+        <div id="import-preview" style="display:none;margin-top:14px">
+          <p style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--primary-color)"><i class="fas fa-list"></i> Budgets disponibles dans le fichier :</p>
+          <div id="import-budget-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <button id="import-select-all" class="backup-btn-alt" style="flex:1;font-size:12px;padding:7px"><i class="fas fa-check-double"></i> Tout</button>
+            <button id="import-select-none" class="backup-btn-alt" style="flex:1;font-size:12px;padding:7px"><i class="fas fa-times"></i> Aucun</button>
+          </div>
+          <button id="import-confirm-btn" class="save-btn"><i class="fas fa-file-import"></i> Importer les budgets sélectionnés</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ À PROPOS ═══ -->
+  <div id="contact-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-contact"><i class="fas fa-arrow-left"></i></button>
+        <span translate="contact.title">À propos de Menap</span>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="info-card">
+        <h3><i class="fas fa-wallet"></i> Menap V2.0</h3>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px" translate="contact.desc">Budget achataire familial multi-langues.</p>
+        <hr style="margin:12px 0;border-color:var(--border-color)">
+        <div style="font-size:14px;display:flex;flex-direction:column;gap:10px">
+          <div><span style="font-weight:700">Auteur:</span> Emmadiblo</div>
+          <div><span style="font-weight:700">Contact:</span> emmadiblo@gmail.com</div>
+
+         
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ BUDGET Modal ═══ -->
+  <div id="budget-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-budget-modal"><i class="fas fa-arrow-left"></i></button>
+        <span id="budget-modal-title" translate="budget.create_title">Créer un Budget</span>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label translate="budget.name">Nom du Budget</label>
+        <input type="text" id="budget-name" translate-placeholder="budget.name_placeholder" placeholder="Ex: Budget Octobre">
+      </div>
+      <div class="form-group">
+        <label translate="budget.start_date">Date de Début</label>
+        <input type="date" id="budget-start-date">
+      </div>
+      <div class="form-group-row">
+        <div class="form-group" style="flex:2;margin-bottom:0">
+          <label translate="budget.duration">Durée</label>
+          <select id="budget-duration-type">
+            <option value="day" translate="budget.duration_day">Jour(s)</option>
+            <option value="week" translate="budget.duration_week">Semaine(s)</option>
+            <option value="month" selected translate="budget.duration_month">Mois</option>
+            <option value="year" translate="budget.duration_year">Année(s)</option>
+          </select>
+        </div>
+        <div class="form-group" style="width:90px;margin-bottom:0">
+          <label translate="budget.duration_value">Nbre</label>
+          <input type="number" id="budget-duration-val" min="1" value="1">
+        </div>
+      </div>
+      <button id="save-budget-btn" class="save-btn" style="margin-top:16px" translate="budget.save">Créer le Budget</button>
+    </div>
+  </div>
+
+  <!-- ═══ Achat Modal ═══ -->
+  <div id="item-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-item-modal"><i class="fas fa-arrow-left"></i></button>
+        <span translate="item.create_title">Ajouter Achat</span>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label translate="item.name">Nom de l'Achat</label>
+        <input type="text" id="item-name" translate-placeholder="item.name_placeholder" placeholder="Ex: Riz, Huile, Sucre...">
+        <div id="item-suggestions" class="suggestions-container"></div>
+      </div>
+      <div id="item-advisor-tip" class="warning-banner hidden" style="margin:10px 0 14px;background:var(--primary-light);border-left-color:var(--primary-color)"></div>
+      <div class="form-group">
+        <label translate="item.budgeted">Montant Budgétisé</label>
+        <div style="display:flex;gap:8px">
+          <input type="number" id="item-budgeted" min="0" placeholder="0" style="flex:1">
+          <button type="button" class="backup-btn" style="width:44px;padding:0;flex-shrink:0" onclick="openCalculatorForField('item-budgeted')"><i class="fas fa-calculator"></i></button>
+        </div>
+      </div>
+      <button id="save-item-btn" class="save-btn" translate="item.save">Ajouter Achat</button>
+    </div>
+  </div>
+
+  <!-- ═══ ACHAT Modal ═══ -->
+  <div id="purchase-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-purchase-modal"><i class="fas fa-arrow-left"></i></button>
+        <span translate="purchase.create_title">Enregistrer Achat</span>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label translate="purchase.date">Date</label>
+        <input type="date" id="purchase-date">
+      </div>
+      <div class="form-group">
+        <label translate="purchase.amount">Montant Payé</label>
+        <div style="display:flex;gap:8px">
+          <input type="number" id="purchase-amount" min="0" placeholder="0" style="flex:1">
+          <button type="button" class="backup-btn" style="width:44px;padding:0;flex-shrink:0" onclick="openCalculatorForField('purchase-amount')"><i class="fas fa-calculator"></i></button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label translate="purchase.qty">Quantité (optionnel)</label>
+        <input type="text" id="purchase-qty" translate-placeholder="purchase.qty_placeholder" placeholder="Ex: 2kg, 3 bouteilles">
+      </div>
+      <div class="form-group">
+        <label translate="purchase.note">Note (optionnel)</label>
+        <input type="text" id="purchase-note" translate-placeholder="purchase.note_placeholder" placeholder="Remarque...">
+      </div>
+      <button id="save-purchase-btn" class="save-btn" translate="purchase.save">Enregistrer</button>
+    </div>
+  </div>
+
+  <!-- ═══ LISTE ACHATS Modal ═══ -->
+  <div id="purchases-list-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-purchases-list-modal"><i class="fas fa-arrow-left"></i></button>
+        <span id="purchases-list-title" translate="item.purchases_title">Liste des Achats</span>
+      </div>
+    </div>
+    <div class="modal-body"><div id="purchases-modal-list"></div></div>
+  </div>
+
+  <!-- ═══ RÉAPPRO Modal ═══ -->
+  <div id="refill-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-refill-modal"><i class="fas fa-arrow-left"></i></button>
+        <span id="refill-modal-title" translate="item.refill_title">Réapprovisionner</span>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label translate="purchase.amount">Montant à Ajouter</label>
+        <div style="display:flex;gap:8px">
+          <input type="number" id="refill-amount" min="0" placeholder="0" style="flex:1">
+          <button type="button" class="backup-btn" style="width:44px;padding:0;flex-shrink:0" onclick="openCalculatorForField('refill-amount')"><i class="fas fa-calculator"></i></button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label translate="purchase.qty">Quantité (optionnel)</label>
+        <input type="text" id="refill-qty" placeholder="Ex: 2kg">
+      </div>
+      <div class="form-group">
+        <label translate="purchase.note">Note</label>
+        <input type="text" id="refill-note" value="Réappro.">
+      </div>
+      <button id="save-refill-btn" class="save-btn" translate="item.refill_btn">Achater</button>
+    </div>
+  </div>
+
+        <!-- Smart Draggable Floating Calculator -->
+        <div id="calculator-modal" style="display: none;">
+            <div class="modal-header" id="calculator-drag-header" style="padding: 0;">
+                <div class="modal-title-bar" style="cursor: move;">
+                    <span style="display: inline-flex; align-items: center; gap: 6px;"><i class="fas fa-move"></i> <span translate="calculator.title">Calculator</span></span>
+                    <button id="close-calculator-modal" style="background: none; border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0;"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="modal-body" style="padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div id="calc-preview" class="calc-display" readonly value="0" style="margin-bottom: 2px; height: 44px; font-size: 20px; padding: 6px 12px;">0</div>
+                <input type="text" id="calc-display"  style="font-size: 13px; text-align: right; color: var(--text-muted); min-height: 18px; font-weight: 500; padding: 0 4px; margin-bottom: 2px;">
+                <div class="calculator-grid" style="gap: 6px; margin-top: 0;">
+                    <button class="calc-btn cmd" style="height: 38px; font-size: 16px;" onclick="pressCalc('C')">C</button>
+                    <button class="calc-btn cmd" style="height: 38px; font-size: 16px;" onclick="pressCalc('Backspace')"><i class="fas fa-backspace"></i></button>
+                    <button class="calc-btn op" stylee="height: 38px; font-size: 16px;" onclick="pressCalc('(')">(</button>
+                    <button class="calc-btn op" style="height: 38px; font-size: 16px;" onclick="pressCalc(')')">)</button>
+                    
+                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('7')">7</button>
+                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('8')">8</button>
+                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('9')">9</button>
+                    <button class="calc-btn op" style="height: 38px; font-size: 16px;" onclick="pressCalc('/')">/</button>
+                    
+                    <button class="calc-btn num" style="height:re 38px; font-size: 16px;" onclick="pressCalc('4')">4</button>
+                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('5')">5</button>
+                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('6')">6</button>
+                    <button class="calc-btn op" style="height: 38px; font-size: 16px;" onclick="pressCalc('*')">*</button>
+                    
+                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('1')">1</button>
+                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('2')">2</button>
+                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('3')">3</button>
+                    <button class="calc-btn op" style="height: 38px; font-size: 16px;" onclick="pressCalc('-')">-</button>
+                    
+                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('0')">0</button>
+                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('.')">.</button>
+                    <button class="calc-btn equal" style="height: 38px; font-size: 16px;" onclick="pressCalc('=')">=</button>
+                    <button class="calc-btn op" style="height: 38px; font-size: 16px;" onclick="pressCalc('+')">+</button>
+                   
+                </div>
+                <button id="calc-insert-btn" class="calc-insert-btn" style="margin-top: 4px; padding: 10px; font-size: 14px;" onclick="insertCalcValue()" translate="calculator.copy_amount">Copier le montant</button>
+            </div>
+        </div>
+
+
+  <!-- ═══ DRAWER ═══ -->
+  <div id="drawer" class="drawer">
+    <div class="drawer-header">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="position:relative">
+          <img id="drawer-avatar" src="" style="width:64px;height:64px;border-radius:50%;border:2.5px solid white;object-fit:cover;display:none;box-shadow:0 2px 8px rgba(0,0,0,0.3)">
+          <div id="drawer-avatar-fallback" style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;border:2.5px solid white;font-size:28px;color:white"><i class="fas fa-user"></i></div>
+        </div>
+        <div style="text-align:center">
+          <h2 id="drawer-profile-name" style="font-size:18px;font-weight:700;text-shadow:0 2px 4px rgba(0,0,0,0.2)">Menap</h2>
+          <div id="drawer-profile-email" style="font-size:11px;opacity:0.85;word-break:break-all;max-width:200px">—</div>
+          <div id="drawer-role-badge" style="display:none;font-size:11px;margin-top:4px;padding:2px 10px;background:rgba(255,255,255,0.2);border-radius:20px"><i class="fas fa-crown" style="margin-right:4px"></i>Gestionnaire</div>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-content">
+      <div class="drawer-item" id="nav-dashboard"><i class="fas fa-tachometer-alt"></i><span translate="nav.dashboard">Tableau de Bord</span></div>
+      <div class="drawer-item" id="nav-budgets"><i class="fas fa-folder-open"></i><span translate="nav.budgets">Tous les Budgets</span></div>
+      <div class="drawer-item" id="nav-members"><i class="fas fa-users"></i><span translate="nav.members">Membres du Ménage</span></div>
+      <div class="drawer-item" id="nav-search"><i class="fas fa-search"></i><span translate="nav.search">Rechercher</span></div>
+      <div class="drawer-item" id="nav-backup"><i class="fas fa-database"></i><span translate="settings.export_label">Sauvegarde</span></div>
+      <div class="drawer-item" id="nav-share"><i class="fas fa-share-alt"></i><span translate="nav.share">Partager l'App</span></div>
+      <div class="drawer-divider"></div>
+      <div class="drawer-item" id="nav-settings"><i class="fas fa-cog"></i><span translate="nav.settings">Paramètres</span></div>
+      <div class="drawer-item" id="nav-info"><i class="fas fa-info-circle"></i><span translate="nav.info">À propos</span></div>
+      <div class="drawer-item" id="nav-logout" style="color:var(--danger-color)"><i class="fas fa-sign-out-alt" style="color:var(--danger-color)"></i><span translate="nav.logout">Déconnexion</span></div>
+    </div>
+  </div>
+  <div id="overlay" class="overlay"></div>
+
+  <!-- ═══ HEADER PRINCIPAL ═══ -->
+  <header>
+    <div class="header-left">
+      <button id="menu-btn" aria-label="Menu"><i class="fas fa-bars"></i></button>
+      <div class="selector-container" id="header-year-selector">
+        <span id="current-year">2026</span><i class="fas fa-caret-down"></i>
+      </div>
+      <div class="selector-container" id="header-month-selector">
+        <span id="current-month">06</span><i class="fas fa-caret-down"></i>
+      </div>
+      <div class="selector-container" id="header-day-selector">
+        <span id="current-day">08</span><i class="fas fa-caret-down"></i>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="sync-indicator" id="sync-indicator">
+        <span class="sync-dot" id="sync-dot"></span>
+        <span id="sync-text" style="font-size:10px;color:rgba(255,255,255,.85)">Synchronisé</span>
+      </div>
+      <button id="header-calc-btn" aria-label="Calculatrice"><i class="fas fa-calculator"></i></button>
+      <button id="search-btn" aria-label="Rechercher"><i class="fas fa-search"></i></button>
     </div>
   </header>
 
-  <!-- ─── Drawer overlay ─── -->
-  <div id="drawer-overlay" class="drawer-overlay"></div>
-
-  <!-- ─── Drawer ─── -->
-  <nav id="drawer" class="drawer" role="navigation">
-    <div class="drawer-header">
-      <div class="drawer-avatar-wrapper">
-        <div class="drawer-avatar-circle">
-          <img id="drawer-avatar" src="" alt="" style="display:none">
-          <i id="drawer-avatar-fallback" class="fas fa-user"></i>
-        </div>
-        <div class="drawer-profile-info">
-          <div class="drawer-profile-name" id="drawer-profile-name">Utilisateur</div>
-          <div class="drawer-profile-email" id="drawer-profile-email"></div>
-          <span class="drawer-role-badge" id="drawer-role-badge" style="display:none">👑 Gestionnaire</span>
-        </div>
-      </div>
-    </div>
-    <div class="drawer-nav">
-      <div class="nav-item" id="nav-dashboard">
-        <i class="fas fa-home"></i><span translate="nav.dashboard">Tableau de Bord</span>
-      </div>
-      <div class="nav-item" id="nav-budgets">
-        <i class="fas fa-wallet"></i><span translate="nav.budgets">Budgets</span>
-      </div>
-      <div class="nav-item" id="nav-members">
-        <i class="fas fa-users"></i><span translate="nav.members">Membres</span>
-      </div>
-      <div class="nav-separator"></div>
-      <div class="nav-item" id="nav-search">
-        <i class="fas fa-search"></i><span translate="nav.search">Rechercher</span>
-      </div>
-      <div class="nav-item" id="nav-backup">
-        <i class="fas fa-cloud-upload-alt"></i><span translate="nav.backup">Sauvegarde</span>
-      </div>
-      <div class="nav-item" id="nav-share">
-        <i class="fas fa-share-alt"></i><span translate="nav.share">Partager</span>
-      </div>
-      <div class="nav-separator"></div>
-      <div class="nav-item" id="nav-settings">
-        <i class="fas fa-cog"></i><span translate="nav.settings">Paramètres</span>
-      </div>
-      <div class="nav-item" id="nav-info">
-        <i class="fas fa-info-circle"></i><span translate="nav.info">À propos</span>
-      </div>
-      <div class="nav-separator"></div>
-      <div class="nav-item danger" id="nav-logout">
-        <i class="fas fa-sign-out-alt"></i><span translate="nav.logout">Déconnexion</span>
-      </div>
-    </div>
-    <div class="drawer-version">Menap v2.0</div>
-  </nav>
-
-  <!-- ─── Contenu principal ─── -->
+  <!-- ═══ CONTENU PRINCIPAL ═══ -->
   <main id="main-content"></main>
 
-</div><!-- /app -->
-
-<!-- ═══════════════════════════════════════════════
-     MODALS
-     ═══════════════════════════════════════════════ -->
-
-<!-- ─── Sélecteur de date ─── -->
-<div id="selection-modal" class="modal" style="display:none">
-  <div class="modal-header">
-    <div class="modal-title-bar">
-      <button id="close-modal"><i class="fas fa-times"></i></button>
-      <span translate="selection.title">Sélectionner la Date</span>
-      <span style="flex:1"></span>
-    </div>
-  </div>
-  <div class="modal-body">
-    <!-- Fil d'Ariane -->
-    <div class="date-nav-breadcrumb" id="date-breadcrumb"></div>
-    <!-- Onglets -->
-    <div class="tabs" style="margin-bottom:16px">
-      <div class="tab active" data-tab="years" translate="selection.year">Année</div>
-      <div class="tab" data-tab="months" translate="selection.month">Mois</div>
-      <div class="tab" data-tab="days" translate="selection.day">Jour</div>
-    </div>
-    <!-- Années -->
-    <div id="sel-years-section" class="date-section active-section">
-      <div class="grid" id="year-grid"></div>
-    </div>
-    <!-- Mois -->
-    <div id="sel-months-section" class="date-section">
-      <div class="grid" id="month-grid"></div>
-    </div>
-    <!-- Jours -->
-    <div id="sel-days-section" class="date-section">
-      <div class="grid" id="day-grid"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ─── Recherche ─── -->
-<div id="search-modal" class="modal" style="display:none">
-  <div class="modal-header">
-    <div class="search-input-container">
-      <button id="close-search" style="background:rgba(255,255,255,.15);border:none;color:white;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-arrow-left"></i></button>
-      <input type="text" id="search-input" translate-placeholder="search.placeholder" placeholder="Rechercher...">
-    </div>
-  </div>
-  <div class="modal-body" id="search-results"></div>
-</div>
-
-<!-- ─── Créer/Modifier Budget ─── -->
-<div id="budget-modal" class="modal modal-partial" style="display:none">
-  <div class="modal-header">
-    <div class="modal-title-bar">
-      <button id="close-budget-modal"><i class="fas fa-times"></i></button>
-      <span id="budget-modal-title" translate="budget.create_title">Créer un Budget</span>
-    </div>
-  </div>
-  <div class="modal-body">
-    <div class="form-group">
-      <label translate="budget.name">Nom du Budget</label>
-      <input type="text" id="budget-name" translate-placeholder="budget.name_placeholder" placeholder="Ex: Budget Octobre">
-    </div>
-    <div class="form-group">
-      <label translate="budget.start_date">Date de Début</label>
-      <input type="date" id="budget-start-date">
-    </div>
-    <div class="form-group">
-      <label translate="budget.duration">Durée</label>
-      <div class="form-group-row">
-        <select id="budget-duration-type" style="flex:2;padding:11px 12px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--card-bg);color:var(--text-color);font-size:14px;font-family:inherit;outline:none">
-          <option value="day" translate="budget.duration_day">Jour(s)</option>
-          <option value="week" translate="budget.duration_week">Semaine(s)</option>
-          <option value="month" selected translate="budget.duration_month">Mois</option>
-          <option value="year" translate="budget.duration_year">Année(s)</option>
-        </select>
-        <input type="number" id="budget-duration-value" value="1" min="1" max="99" style="flex:1;padding:11px 12px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--card-bg);color:var(--text-color);font-size:14px;font-family:inherit;outline:none;text-align:center">
+  <!-- ═══ DÉCONNEXION Modal ═══ -->
+  <div id="logout-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-logout-modal"><i class="fas fa-arrow-left"></i></button>
+        <span translate="logout.title">Déconnexion</span>
       </div>
     </div>
-    <button class="save-btn" id="save-budget-btn" translate="budget.save">Créer le Budget</button>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <p style="font-size:14px;color:var(--text-muted)">Souhaitez-vous sauvegarder avant de vous déconnecter ?</p>
+      <button id="logout-export-dem" class="backup-btn"><i class="fas fa-download"></i> Sauvegarder en .menap</button>
+      <button id="logout-confirm-btn" class="save-btn" style="background:var(--danger-color)"><i class="fas fa-sign-out-alt"></i> Se déconnecter</button>
+    </div>
   </div>
-</div>
 
-<!-- ─── Créer Item ─── -->
-<div id="item-modal" class="modal modal-partial" style="display:none">
-  <div class="modal-header">
-    <div class="modal-title-bar">
-      <button id="close-item-modal"><i class="fas fa-times"></i></button>
-      <span id="item-modal-title" translate="item.create_title">Ajouter Achat</span>
-    </div>
-  </div>
-  <div class="modal-body">
-    <div class="form-group">
-      <label translate="item.name">Nom de l'Achat</label>
-      <input type="text" id="item-name" translate-placeholder="item.name_placeholder" placeholder="Ex: Riz, Huile...">
-    </div>
-    <div id="item-suggestions" class="suggestions-container"></div>
-    <div class="advisor-tip hidden" id="item-advisor"></div>
-    <div class="form-group">
-      <label translate="item.budgeted">Montant Budgétisé</label>
-      <input type="number" id="item-budgeted" placeholder="0" min="0">
-    </div>
-    <button class="save-btn" id="save-item-btn" translate="item.save">Ajouter Achat</button>
-  </div>
-</div>
-
-<!-- ─── Réapprovisionner ─── -->
-<div id="refill-modal" class="modal modal-partial" style="display:none">
-  <div class="modal-header">
-    <div class="modal-title-bar">
-      <button id="close-refill-modal"><i class="fas fa-times"></i></button>
-      <span id="refill-item-name" translate="item.refill_title">Réapprovisionner</span>
-    </div>
-  </div>
-  <div class="modal-body">
-    <div class="form-group">
-      <label translate="purchase.date">Date</label>
-      <input type="date" id="refill-date">
-    </div>
-    <div class="form-group">
-      <label translate="purchase.amount">Montant</label>
-      <input type="number" id="refill-amount" translate-placeholder="purchase.amount" placeholder="0" min="0">
-    </div>
-    <div class="form-group">
-      <label translate="purchase.qty">Quantité</label>
-      <input type="text" id="refill-qty" translate-placeholder="purchase.qty_placeholder" placeholder="Ex: 2kg, 3 bouteilles">
-    </div>
-    <div class="form-group">
-      <label translate="purchase.note">Note</label>
-      <input type="text" id="refill-note" translate-placeholder="purchase.note_placeholder" placeholder="Remarque...">
-    </div>
-    <button class="save-btn" id="save-refill-btn" translate="item.refill_btn">Acheter</button>
-  </div>
-</div>
-
-<!-- ─── Liste des achats ─── -->
-<div id="purchases-list-modal" class="modal" style="display:none">
-  <div class="modal-header">
-    <div class="modal-title-bar">
-      <button id="close-purchases-list-modal"><i class="fas fa-arrow-left"></i></button>
-      <span id="purchases-list-title" translate="item.purchases_title">Liste des Achats</span>
-    </div>
-  </div>
-  <div class="modal-body" id="purchases-list-body"></div>
-  <div class="modal-footer">
-    <button onclick="openRefillModal(state.currentItemId)" style="background:var(--primary-color);color:white;border:none">
-      <i class="fas fa-plus"></i> <span translate="item.refill_btn">Acheter</span>
-    </button>
-  </div>
-</div>
-
-<!-- ─── Membres ─── -->
-<div id="members-modal" class="modal" style="display:none">
-  <div class="modal-header">
-    <div class="modal-title-bar">
-      <button id="close-members-modal"><i class="fas fa-times"></i></button>
-      <span translate="members.title">Membres du Ménage</span>
-      <span style="flex:1"></span>
-      <span id="members-count" style="background:var(--primary-color);color:white;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">0</span>
-    </div>
-  </div>
-  <div class="modal-body">
-    <!-- Liste membres -->
-    <div id="members-list" style="margin-bottom:16px"></div>
-
-    <!-- Invite QR -->
-    <div class="info-card" style="margin-bottom:12px">
-      <h3><i class="fas fa-user-plus"></i> <span translate="members.invite">Inviter un Membre</span></h3>
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px" translate="members.invite_desc">Partagez votre QR Code pour inviter un membre.</p>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <button class="backup-btn" id="generate-invite-qr-btn" style="flex:1;font-size:12px">
-          <i class="fas fa-qrcode"></i> <span translate="members.gen_invite_qr">Générer QR</span>
-        </button>
-        <button class="backup-btn-alt" id="scan-join-btn" style="flex:1;font-size:12px">
-          <i class="fas fa-camera"></i> <span translate="members.scan_join">Scanner QR</span>
-        </button>
-      </div>
-      <div id="invite-qr-container" class="qr-display-box hidden">
-        <div id="invite-qrcode" class="qr-canvas-wrapper"></div>
+  <!-- ═══ SÉLECTEUR DATE Modal ═══ -->
+  <div id="selection-modal" class="modal modal-partial" style="display:none">
+    <div class="modal-header" style="padding:0">
+      <div class="tabs" style="margin:0;border-radius:0">
+        <div class="tab active" data-tab="years" translate="selection.year">Année</div>
+        <div class="tab" data-tab="months" translate="selection.month">Mois</div>
+        <div class="tab" data-tab="days" translate="selection.day">Jour</div>
       </div>
     </div>
-
-    <!-- Transfert -->
-    <div id="privilege-transfer-section" style="display:none">
-      <div class="info-card" style="margin-bottom:12px">
-        <h3><i class="fas fa-crown"></i> <span translate="members.transfer_title">Transfert de Gestionnaire</span></h3>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px" translate="members.transfer_desc">Sélectionnez un membre pour lui céder les privilèges.</p>
-        <select id="transfer-target-select" style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--card-bg);color:var(--text-color);font-size:14px;font-family:inherit;margin-bottom:10px">
-          <option value="">-- Choisir un membre --</option>
-        </select>
-        <button class="backup-btn" id="transfer-privilege-btn">
-          <i class="fas fa-exchange-alt"></i> <span translate="members.transfer_btn">Céder les Privilèges</span>
-        </button>
-      </div>
+    <div class="modal-body" style="padding:12px">
+      <div id="year-grid-container" class="tab-content active-content"><div id="year-grid" class="grid"></div></div>
+      <div id="month-grid-container" class="tab-content"><div id="month-grid" class="grid"></div></div>
+      <div id="day-grid-container" class="tab-content"><div id="day-grid" class="grid"></div></div>
     </div>
-
-    <!-- Approbation transfert -->
-    <div id="transfer-approval-section" style="display:none">
-      <div class="info-card" style="border-color:var(--warning-color)">
-        <h3 style="color:var(--warning-color)"><i class="fas fa-bell"></i> <span translate="members.request_title">Demande de Gestionnaire</span></h3>
-        <p id="transfer-approval-text" style="font-size:13px;margin-bottom:12px"></p>
-        <div style="display:flex;gap:8px">
-          <button class="backup-btn" id="approve-transfer-btn" style="background:var(--success-color)">
-            <i class="fas fa-check"></i> <span translate="members.request_accept">Accepter</span>
-          </button>
-          <button class="backup-btn-alt" id="reject-transfer-btn">
-            <i class="fas fa-times"></i> <span translate="members.request_reject">Refuser</span>
-          </button>
-        </div>
-      </div>
+    <div class="modal-footer">
+      <button id="close-modal" translate="selection.close">Fermer</button>
     </div>
   </div>
-</div>
 
-<!-- ─── Sauvegarde / Restauration ─── -->
-<div id="backup-modal" class="modal" style="display:none">
-  <div class="modal-header">
-    <div class="modal-title-bar">
-      <button id="close-backup-modal"><i class="fas fa-times"></i></button>
-      <span translate="backup.title">Sauvegarde / Restauration</span>
-    </div>
-  </div>
-  <div class="modal-body">
+</div><!-- /#app -->
 
-    <!-- Export .menap -->
-    <div class="backup-section">
-      <h3 translate="backup.menap_export_title">Exporter Budgets (.menap)</h3>
-      <p translate="backup.menap_export_desc">Sélectionnez les budgets à exporter.</p>
-      <div class="menap-select-actions">
-        <button id="export-all-select" translate="backup.select_all">Tout sélectionner</button>
-        <button id="export-none-select" translate="backup.deselect_all">Tout désélectionner</button>
-      </div>
-      <div id="menap-export-list" class="menap-budget-list"></div>
-      <button class="backup-btn" id="export-menap-btn" style="margin-top:10px">
-        <i class="fas fa-file-export"></i> <span translate="backup.menap_export_btn">Exporter les budgets sélectionnés</span>
-      </button>
-    </div>
-
-    <!-- Import .menap -->
-    <div class="backup-section">
-      <h3 translate="backup.menap_import_title">Importer Budgets (.menap)</h3>
-      <p translate="backup.menap_import_desc">Importez un fichier .menap partagé.</p>
-      <button class="backup-btn-alt" id="import-menap-btn">
-        <i class="fas fa-file-import"></i> <span translate="backup.menap_import_btn">Choisir un fichier .menap</span>
-      </button>
-      <input type="file" id="menap-import-file-input" accept=".menap" style="display:none">
-    </div>
-
-    <div style="height:1px;background:var(--border-color);margin:4px 0 16px"></div>
-
-    <!-- Export DB complète -->
-    <div class="backup-section">
-      <h3 translate="backup.db_export_title">Sauvegarde Complète</h3>
-      <p translate="backup.db_export_desc">Exportez toute la base de données.</p>
-      <button class="backup-btn" id="export-db-btn">
-        <i class="fas fa-database"></i> <span translate="backup.db_export_btn">Exporter .db</span>
-      </button>
-    </div>
-
-    <!-- Import DB complète -->
-    <div class="backup-section">
-      <h3 translate="backup.db_import_title">Restaurer Base Complète</h3>
-      <p translate="backup.db_import_desc">Restaurez depuis un fichier .db.</p>
-      <button class="backup-btn-alt" id="import-db-btn">
-        <i class="fas fa-upload"></i> <span translate="backup.db_import_btn">Importer .db</span>
-      </button>
-      <input type="file" id="full-db-import-input" accept=".db" style="display:none">
-    </div>
-
-  </div>
-</div>
-
-<!-- ─── Import .menap sélectif ─── -->
-<div id="menap-import-modal" class="modal modal-partial" style="display:none">
-  <div class="modal-header">
-    <div class="modal-title-bar">
-      <button id="close-menap-import-modal"><i class="fas fa-times"></i></button>
-      <span translate="backup.menap_import_title">Importer Budgets</span>
-    </div>
-  </div>
-  <div class="modal-body">
-    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px" translate="backup.menap_import_desc">Sélectionnez les budgets à importer.</p>
-    <div class="menap-select-actions">
-      <button id="import-all-select" translate="backup.select_all">Tout sélectionner</button>
-      <button id="import-none-select" translate="backup.deselect_all">Tout désélectionner</button>
-    </div>
-    <div id="menap-import-list" class="menap-budget-list"></div>
-  </div>
-  <div class="modal-footer">
-    <button id="confirm-menap-import-btn" style="background:var(--primary-color);color:white;border:none;font-weight:700">
-      <i class="fas fa-file-import"></i> <span translate="backup.menap_import_btn">Importer la sélection</span>
-    </button>
-  </div>
-</div>
-
-<!-- ─── Paramètres ─── -->
-<div id="settings-modal" class="modal" style="display:none">
-  <div class="modal-header">
-    <div class="modal-title-bar">
-      <button id="close-settings"><i class="fas fa-times"></i></button>
-      <span translate="settings.title">Paramètres</span>
-    </div>
-  </div>
-  <div class="modal-body settings-body">
-
-    <!-- Profil -->
-    <div class="setting-item" style="display:flex;align-items:center;gap:14px;padding:16px 0">
-      <div style="width:56px;height:56px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;cursor:pointer" onclick="document.getElementById('settings-photo-input').click()">
-        <img id="settings-profile-pic" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover">
-        <i id="settings-profile-pic-fallback" class="fas fa-user" style="font-size:22px;color:var(--primary-color)"></i>
-      </div>
-      <div style="flex:1;min-width:0">
-        <div id="settings-profile-name" style="font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-        <div id="settings-profile-email" style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-        <button style="margin-top:6px;padding:4px 10px;border-radius:8px;border:1.5px solid var(--border-color);background:transparent;color:var(--text-muted);cursor:pointer;font-size:11px;font-weight:600" id="settings-change-photo" onclick="document.getElementById('settings-photo-input').click()">
-          <i class="fas fa-camera" style="margin-right:4px"></i>Changer photo
-        </button>
-        <input type="file" id="settings-photo-input" accept="image/*" style="display:none">
-      </div>
-    </div>
-
-    <div class="setting-item">
-      <label translate="settings.theme_label">Thème de l'application</label>
-      <select id="theme-select" class="settings-select">
-        <option value="light" translate="settings.theme_light">Mode Clair</option>
-        <option value="dark" translate="settings.theme_dark">Mode Sombre</option>
-      </select>
-    </div>
-    <div class="setting-item">
-      <label translate="settings.lang_label">Langue de l'application</label>
-      <select id="lang-select" class="settings-select">
-        <option value="fr">Français</option>
-        <option value="en">English</option>
-        <option value="rn">Kirundi</option>
-        <option value="rw">Kinyarwanda</option>
-      </select>
-    </div>
-    <div class="setting-item">
-      <label translate="settings.currency_label">Devise par Défaut</label>
-      <select id="currency-select" class="settings-select">
-        <option value="BIF">BIF — Franc Burundais</option>
-        <option value="RWF">RWF — Franc Rwandais</option>
-        <option value="USD">USD — Dollar</option>
-        <option value="EUR">EUR — Euro</option>
-        <option value="KES">KES — Shilling Kenyan</option>
-        <option value="TZS">TZS — Shilling Tanzanien</option>
-        <option value="UGX">UGX — Shilling Ougandais</option>
-        <option value="XAF">XAF — Franc CFA CEMAC</option>
-        <option value="XOF">XOF — Franc CFA UEMOA</option>
-        <option value="NGN">NGN — Naira Nigérian</option>
-      </select>
-    </div>
-    <div class="setting-item">
-      <label translate="settings.sound_label">Activer les effets sonores</label>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-        <input type="checkbox" id="sound-toggle" style="width:18px;height:18px;accent-color:var(--primary-color)">
-        <span style="font-size:13px;color:var(--text-muted)">Sons</span>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<!-- ─── Déconnexion ─── -->
-<div id="logout-modal" class="modal modal-partial" style="display:none">
-  <div class="modal-header">
-    <div class="modal-title-bar">
-      <button id="close-logout-modal"><i class="fas fa-times"></i></button>
-      <span translate="logout.title">Déconnexion</span>
-    </div>
-  </div>
-  <div class="modal-body">
-    <p style="font-size:14px;color:var(--text-muted);margin-bottom:20px;line-height:1.5" translate="logout.desc">Vos données sont enregistrées dans menap.db.</p>
-    <button class="backup-btn-alt" id="logout-export-btn" style="margin-bottom:10px">
-      <i class="fas fa-file-export"></i> <span translate="logout.btn_export">Exporter sauvegarde .menap</span>
-    </button>
-    <button class="danger-btn-alt" id="logout-confirm-btn">
-      <i class="fas fa-sign-out-alt"></i> <span translate="logout.btn_confirm">Se déconnecter</span>
-    </button>
-  </div>
-  <div class="modal-footer">
-    <button id="logout-cancel-btn" translate="logout.btn_cancel">Annuler</button>
-  </div>
-</div>
-
-<!-- ─── À propos ─── -->
-<div id="contact-modal" class="modal" style="display:none">
-  <div class="modal-header">
-    <div class="modal-title-bar">
-      <button id="close-contact"><i class="fas fa-times"></i></button>
-      <span translate="contact.title">À propos de Menap</span>
-    </div>
-  </div>
-  <div class="modal-body">
-    <div class="info-card">
-      <h3><i class="fas fa-wallet"></i> Menap v2.0</h3>
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px" translate="contact.desc">Budget achataire familial multi-langues.</p>
-      <p style="font-size:12px;color:var(--text-muted)"><span translate="contact.version">Version</span>: 2.0.0</p>
-      <p style="font-size:12px;color:var(--text-muted)"><span translate="contact.author">Développé par</span>: Emmadiblo</p>
-    </div>
-    <div class="info-card" style="margin-top:12px">
-      <h3><i class="fas fa-language"></i> Langues disponibles</h3>
-      <p style="font-size:13px;color:var(--text-muted)">Français · English · Kirundi · Kinyarwanda</p>
-    </div>
-    <div class="info-card" style="margin-top:12px">
-      <h3><i class="fas fa-share-alt"></i> Partager l'application</h3>
-      <button class="backup-btn" id="share-app-btn" style="margin-top:8px">
-        <i class="fas fa-share"></i> <span translate="nav.share">Partager</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ─── Caméra QR — z-index 10000, TOUJOURS AU-DESSUS ─── -->
-<div id="camera-qr-modal" class="modal" style="display:none;z-index:10000">
-  <div class="camera-header-bar">
-    <button id="close-camera-qr"><i class="fas fa-arrow-left"></i></button>
-    <span translate="qr.title">Scanner QR Code</span>
-  </div>
-  <div class="modal-body" style="background:#000;flex:1;display:flex;flex-direction:column;padding:16px;overflow:hidden">
-    <div class="camera-viewport">
-      <video id="qr-camera-video" autoplay playsinline muted></video>
-      <canvas id="qr-camera-canvas" style="display:none"></canvas>
-      <div class="camera-scan-overlay">
-        <div class="camera-scan-frame"></div>
-      </div>
-    </div>
-    <p class="camera-hint" translate="qr.hint">Pointez la caméra vers le QR Code</p>
-    <div class="camera-scan-status" id="qr-scan-status"></div>
-  </div>
-  <div style="padding:16px;background:#000">
-    <button id="stop-camera-btn" class="danger-btn-alt" style="border-color:rgba(255,255,255,.4);color:white">
-      <i class="fas fa-stop-circle"></i> <span translate="qr.stop">Arrêter la caméra</span>
-    </button>
-  </div>
-</div>
-
-<!-- ─── Calculatrice ─── -->
-<div id="calculator-modal" style="display:none">
-  <div class="modal-header" id="calc-drag-handle">
-    <div class="modal-title-bar">
-      <span translate="calculator.title">Calculatrice</span>
-      <span style="flex:1"></span>
-      <button id="close-calculator-modal"><i class="fas fa-times"></i></button>
-    </div>
-  </div>
-  <div class="modal-body">
-    <div class="calc-preview" id="calc-preview"></div>
-    <input type="text" class="calc-display" id="calc-display" readonly placeholder="0">
-    <div class="calculator-grid">
-      <button class="calc-btn cmd" data-val="C">C</button>
-      <button class="calc-btn op" data-val="±">±</button>
-      <button class="calc-btn op" data-val="%">%</button>
-      <button class="calc-btn op" data-val="/">÷</button>
-      <button class="calc-btn num" data-val="7">7</button>
-      <button class="calc-btn num" data-val="8">8</button>
-      <button class="calc-btn num" data-val="9">9</button>
-      <button class="calc-btn op" data-val="*">×</button>
-      <button class="calc-btn num" data-val="4">4</button>
-      <button class="calc-btn num" data-val="5">5</button>
-      <button class="calc-btn num" data-val="6">6</button>
-      <button class="calc-btn op" data-val="-">−</button>
-      <button class="calc-btn num" data-val="1">1</button>
-      <button class="calc-btn num" data-val="2">2</button>
-      <button class="calc-btn num" data-val="3">3</button>
-      <button class="calc-btn op" data-val="+">+</button>
-      <button class="calc-btn num" data-val="0" style="grid-column:span 2">0</button>
-      <button class="calc-btn num" data-val=".">.</button>
-      <button class="calc-btn equal" data-val="=">=</button>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="backup-btn-alt" id="calc-copy-btn" style="flex:1">
-        <i class="fas fa-copy"></i> <span translate="calculator.copy_amount">Copier</span>
-      </button>
-      <button class="backup-btn" id="calc-insert-btn" style="flex:1">
-        <i class="fas fa-arrow-down"></i> <span translate="calculator.insert_amount">Insérer</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════
-     LIBRAIRIES JS
-     ═══════════════════════════════════════════════ -->
-<!-- sql.js (SQLite en navigateur) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"></script>
-<!-- jsQR (lecture QR code caméra) -->
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<!-- QRCode.js (génération QR code) -->
+<!-- Scripts (ordre important) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
-<!-- App -->
-<script src="db.js?v=2.2"></script>
-<script src="lang.js?v=2.2"></script>
-<script src="app.js?v=2.2"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"></script>
+<script src="lang.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

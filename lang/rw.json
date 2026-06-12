@@ -5,7 +5,9 @@
     "loading": "Gutegereza...",
     "offline": "Nta interineti",
     "syncing": "Guhuza amakuru...",
-    "synced": "Bihurijwe"
+    "synced": "Bihurijwe",
+    "sync_pending": "Gutegereza…",
+    "realtime": "Igihe nyacyo ●"
   },
   "nav": {
     "dashboard": "Ikibaho",
@@ -16,7 +18,8 @@
     "share": "Sangira",
     "settings": "Igenamiterere",
     "info": "Ibirebana na Menap",
-    "logout": "Sohoka"
+    "logout": "Sohoka",
+    "leave": "Sohoka mu Muryango"
   },
   "setup": {
     "title": "Murakaza neza kuri Menap",
@@ -122,7 +125,14 @@
     "none": "Nta banyarugo bahari",
     "request_title": "Icyifuzo cy'ubuyobozi",
     "request_accept": "Emera",
-    "request_reject": "Yanga"
+    "request_reject": "Yanga",
+    "leave_btn": "Sohoka mu Muryango",
+    "leave_confirm": "Urashaka gusohoka muri uyu muryango?",
+    "payment_section": "Amafaranga y'Ingengo",
+    "share_amount": "Igice kuri buri mutanga",
+    "paid": "Wishyuye",
+    "unpaid": "Ntabwo wishyuye",
+    "request_text": "{name} akugira ngo ube Umuyobozi."
   },
   "selection": {
     "title": "Hitamo itariki",
@@ -195,7 +205,8 @@
     "date_required": "Itariki irakenewe",
     "choose_member": "Hitamo umunyarugo",
     "calc_invalid": "Agaciro ntakagira akamaro",
-    "email_exists": "Iyi imeli ikoreshwa n’undi muntu."
+    "email_exists": "Iyi imeli ikoreshwa n’undi muntu.",
+    "generic": "Habaye ikosa."
   },
   "toast": {
     "budget_created": "Ingengo yashizweho!",
@@ -217,7 +228,10 @@
     "db_exported": "Ububiko bwoherejwe!",
     "household_joined": "Winjiye mu rugo!",
     "already_member": "Usanzwe uri mu rugo",
-    "qr_format_unknown": "Ubwoko bwa QR ntibwizwi"
+    "qr_format_unknown": "Ubwoko bwa QR ntibwizwi",
+    "left_household": "Wasohotse mu muryango",
+    "payment_updated": "Inyandiko ya gahunda yahindutse",
+    "data_updated": "Amakuru yavuguruwe"
   },
   "months": [
     "Mutarama",

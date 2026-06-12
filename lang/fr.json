@@ -5,7 +5,9 @@
     "loading": "Chargement...",
     "offline": "Hors ligne",
     "syncing": "Synchronisation...",
-    "synced": "Synchronisé"
+    "synced": "Synchronisé",
+    "sync_pending": "En attente…",
+    "realtime": "Temps réel ●"
   },
   "nav": {
     "dashboard": "Tableau de Bord",
@@ -16,7 +18,8 @@
     "share": "Partager",
     "settings": "Paramètres",
     "info": "À propos",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "leave": "Quitter le Ménage"
   },
   "setup": {
     "title": "Bienvenue sur Menap",
@@ -122,7 +125,14 @@
     "none": "Aucun membre dans le ménage",
     "request_title": "Demande de Gestionnaire",
     "request_accept": "Accepter",
-    "request_reject": "Refuser"
+    "request_reject": "Refuser",
+    "leave_btn": "Quitter le Ménage",
+    "leave_confirm": "Êtes-vous sûr de vouloir quitter ce ménage ?",
+    "payment_section": "Paiements du Budget",
+    "share_amount": "Part par membre",
+    "paid": "Payé",
+    "unpaid": "Non payé",
+    "request_text": "{name} vous demande de devenir Gestionnaire."
   },
   "selection": {
     "title": "Sélectionner la Date",
@@ -195,7 +205,8 @@
     "date_required": "Date requise",
     "choose_member": "Choisissez un membre",
     "calc_invalid": "Valeur invalide",
-    "email_exists": "Cet email est déjà utilisé par un autre compte."
+    "email_exists": "Cet email est déjà utilisé par un autre compte.",
+    "generic": "Une erreur est survenue."
   },
   "toast": {
     "budget_created": "Budget créé!",
@@ -217,7 +228,10 @@
     "db_exported": "Base exportée!",
     "household_joined": "Vous avez rejoint le ménage!",
     "already_member": "Vous êtes déjà dans ce ménage",
-    "qr_format_unknown": "Format QR non reconnu"
+    "qr_format_unknown": "Format QR non reconnu",
+    "left_household": "Vous avez quitté le ménage",
+    "payment_updated": "Statut de paiement mis à jour",
+    "data_updated": "Données mises à jour"
   },
   "months": [
     "Janv",
