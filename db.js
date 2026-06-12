@@ -17,7 +17,7 @@ class MenapDB {
     // Charger depuis api.php — source UNIQUE et obligatoire
     let loaded = false;
     try {
-      const resp = await fetch('api.php', { cache: 'no-store' });
+      const resp = await fetch('https://sigra.xo.je/menap/api.php', { cache: 'no-store' });
       if (resp.ok && resp.status !== 204) {
         const buf = await resp.arrayBuffer();
         if (buf.byteLength > 100) {
@@ -486,7 +486,7 @@ class MenapDB {
     try {
       // Envoyer le binaire SQLite brut (ce qu'attend api.php)
       const bin = this.db.export(); // Uint8Array
-      const resp = await fetch('api.php', {
+      const resp = await fetch('https://sigra.xo.je/menap/api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/octet-stream' },
         body: bin
@@ -507,13 +507,13 @@ class MenapDB {
       if (!navigator.onLine || this._uploading || this._syncPending) return;
       try {
         // Vérifier si la version a changé (endpoint léger)
-        const vResp = await fetch('api.php?action=version', { cache: 'no-store' });
+        const vResp = await fetch('https://sigra.xo.je/menap/api.php?action=version', { cache: 'no-store' });
         if (!vResp.ok) return;
         const vJson = await vResp.json();
         if (vJson.ts <= lastTs) return; // rien de nouveau
         lastTs = vJson.ts;
         // Télécharger la nouvelle base
-        const resp = await fetch('api.php', { cache: 'no-store' });
+        const resp = await fetch('https://sigra.xo.je/menap/api.php', { cache: 'no-store' });
         if (!resp.ok || resp.status === 204) return;
         const buf = await resp.arrayBuffer();
         if (buf.byteLength < 100) return;
