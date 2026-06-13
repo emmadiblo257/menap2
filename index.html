@@ -88,16 +88,33 @@
         <button id="setup-start-btn" class="primary-btn">Créer le Ménage <i class="fas fa-arrow-right"></i></button>
       </div>
 
-      <!-- ══ Onglet Connexion (sélection membre) ══ -->
+      <!-- ══ Onglet Connexion ══ -->
       <div id="onboard-login-section" class="hidden">
-        <!-- Alerte profils trouvés -->
         <div id="login-profile-hint" style="display:none;font-size:12px;font-weight:600;color:var(--primary-color);background:var(--primary-light,rgba(13,148,136,.1));border-radius:8px;padding:8px 12px;margin-bottom:12px;text-align:center"></div>
 
+        <!-- Connexion Email + Mot de passe -->
+        <div style="margin-bottom:4px">
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;text-align:left;font-weight:600"><i class="fas fa-envelope" style="color:var(--primary-color)"></i> Connexion par email</p>
+          <div class="form-group" style="margin-bottom:8px">
+            <label style="text-align:left;font-size:11px">Email</label>
+            <input type="email" id="login-email" placeholder="jean@exemple.com" autocomplete="email">
+          </div>
+          <div class="form-group" style="margin-bottom:10px">
+            <label style="text-align:left;font-size:11px">Mot de passe</label>
+            <div class="password-wrapper">
+              <input type="password" id="login-password" placeholder="••••••" autocomplete="current-password">
+              <button type="button" id="login-email-pw-toggle" class="toggle-pw-btn"><i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+          <button id="email-login-btn" class="primary-btn"><i class="fas fa-sign-in-alt"></i> Se connecter</button>
+        </div>
+
+        <div class="onboard-divider"><span>ou sélectionnez votre profil</span></div>
+
         <!-- Grille sélection membres -->
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;text-align:left">Sélectionnez votre profil :</p>
         <div id="member-login-list" class="member-login-grid"></div>
 
-        <!-- Section mot de passe (apparaît après sélection) -->
+        <!-- Section mot de passe après sélection grille -->
         <div id="member-pw-section" style="display:none;margin-top:14px;padding:12px;background:var(--primary-light,rgba(13,148,136,.08));border-radius:12px">
           <input type="hidden" id="selected-member-uid" value="">
           <p id="selected-member-name" style="font-size:13px;font-weight:600;color:var(--primary-dark,#0a6b63);margin-bottom:10px;text-align:center"></p>
@@ -111,12 +128,11 @@
           <button id="member-login-btn" class="primary-btn"><i class="fas fa-sign-in-alt"></i> Se connecter</button>
         </div>
 
-        <!-- Rejoindre un ménage -->
-        <div class="onboard-divider"><span>ou</span></div>
+        <div class="onboard-divider"><span>pas encore dans ce ménage ?</span></div>
         <button id="join-household-btn" class="backup-btn-alt" style="width:100%">
-          <i class="fas fa-users"></i> Rejoindre le ménage du gestionnaire
+          <i class="fas fa-users"></i> Cliquer pour rejoindre le ménage
         </button>
-        <p style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">Le gestionnaire vous montre son QR code à scanner</p>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">Demandez au gestionnaire de vous montrer son QR code</p>
       </div>
     </div>
   </div>
@@ -706,7 +722,7 @@
 </div><!-- /#app -->
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"></script>
 <script src="lang.js"></script>
 <script src="db.js"></script>

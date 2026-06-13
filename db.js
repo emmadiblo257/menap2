@@ -273,12 +273,18 @@ class MenapDB {
   getMemberById(id) { return this._row(`SELECT * FROM members WHERE id=?`, [id]); }
   getManagerMember() { return this._row(`SELECT * FROM members WHERE role='manager' LIMIT 1`); }
   hasManager() { return !!this.getManagerMember(); }
+  getMemberByEmail(email) { return this._row(`SELECT * FROM members WHERE LOWER(email)=LOWER(?)`, [email]); }
 
   addMember(data) {
     // Vérifier unicité user_id si fourni
     if (data.user_id) {
       const existing = this.getMemberByUserId(data.user_id);
       if (existing) return existing.id;
+    }
+    // Vérifier unicité email
+    if (data.email && data.email.trim()) {
+      const byEmail = this.getMemberByEmail(data.email.trim());
+      if (byEmail) return byEmail.id;
     }
     this.db.run(
       `INSERT INTO members (user_id,first_name,last_name,email,password,photo,role) VALUES (?,?,?,?,?,?,?)`,
@@ -436,6 +442,86 @@ class MenapDB {
 
   exportToDem() { return this.exportToMenap(); }
   importFromDem(content) { return this.importFromMenap(content); }
+
+
+  // ─── API JSON serveur ───────────────────────────────────
+
+  /** Authentifier un membre via le serveur (source de vérité) */
+  async apiAuth(email, password) {
+    try {
+      const url = `${this.API_URL}?action=auth&email=${encodeURIComponent(email.trim().toLowerCase())}&password=${encodeURIComponent(password)}`;
+      const r = await fetch(url, { cache: 'no-store', mode: 'cors' });
+      return await r.json(); // {ok, member} ou {ok:false, error}
+    } catch(e) {
+      return { ok: false, error: 'Serveur inaccessible — vérifiez votre connexion' };
+    }
+  }
+
+  /** Récupérer la liste des membres depuis le serveur */
+  async apiGetMembers() {
+    try {
+      const r = await fetch(`${this.API_URL}?action=members`, { cache: 'no-store', mode: 'cors' });
+      return await r.json(); // {ok, members:[...]}
+    } catch(e) {
+      return { ok: false, members: [] };
+    }
+  }
+
+  /** Sauvegarder un membre sur le serveur ET dans le DB local */
+  async apiSaveMember(data) {
+    // 1. Sauvegarder localement
+    this.addMember(data);
+    // 2. Envoyer au serveur
+    try {
+      const r = await fetch(`${this.API_URL}?action=save_member`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        body: JSON.stringify(data)
+      });
+      return await r.json();
+    } catch(e) {
+      return { ok: false, error: 'Serveur inaccessible' };
+    }
+  }
+
+  /** Sauvegarder un paramètre sur le serveur */
+  async apiSaveSetting(key, value) {
+    this.setSetting(key, value);
+    try {
+      await fetch(`${this.API_URL}?action=save_setting`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        body: JSON.stringify({ key, value })
+      });
+    } catch(e) {}
+  }
+
+  /** Charger toutes les données depuis le serveur et les injecter dans le DB local */
+  async apiLoadData() {
+    try {
+      const r = await fetch(`${this.API_URL}?action=get_data`, { cache: 'no-store', mode: 'cors' });
+      if (!r.ok) return false;
+      const data = await r.json();
+      if (!data.ok) return false;
+      // Injecter membres
+      (data.members || []).forEach(m => {
+        const existing = this.getMemberByUserId(m.user_id);
+        if (!existing) {
+          this.db.run(
+            `INSERT OR IGNORE INTO members (user_id,first_name,last_name,email,photo,role) VALUES (?,?,?,?,?,?)`,
+            [m.user_id, m.first_name, m.last_name, m.email, m.photo||'', m.role]
+          );
+        }
+      });
+      // Injecter settings
+      (data.settings || []).forEach(s => this.setSetting(s.key, s.value));
+      return true;
+    } catch(e) {
+      return false;
+    }
+  }
 
   // ─── Synchronisation api.php ───
   _syncToServer() {

@@ -178,143 +178,107 @@ function sendPushNotification(title, body, icon = '/favicon.png') {
   } catch(e) {}
 }
 
-// ─── Caméra QR Scanner ───
+// ─── Caméra QR Scanner (ZXing-js) ───
+let _zxingReader = null;
+
 function startCameraQRScan(mode) {
   state.cameraScanMode = mode;
   openModal('camera-qr-modal');
   const st = $('camera-qr-status');
   if (st) { st.textContent = 'Démarrage de la caméra…'; st.style.color = ''; }
-  startCamera();
+  startZxingCamera();
 }
 
-async function startCamera() {
+async function startZxingCamera() {
   const st = $('camera-qr-status');
-  let stream = null;
+  const video = $('qr-camera-video');
 
-  // Essayer avec facingMode sans contrainte de résolution (plus compatible mobile)
-  const strategies = [
-    { video: { facingMode: { ideal: 'environment' } } },
-    { video: { facingMode: 'environment' } },
-    { video: true }
-  ];
-
-  for (const constraints of strategies) {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-      break;
-    } catch(e) {
-      console.warn('Camera attempt failed:', constraints, e.name);
-    }
-  }
-
-  if (!stream) {
-    if (st) {
-      st.textContent = 'Caméra inaccessible — vérifiez les permissions de l\'application';
-      st.style.color = 'var(--danger-color)';
-    }
+  // Vérifier que ZXing est disponible
+  if (!window.ZXing) {
+    if (st) { st.textContent = 'Erreur : bibliothèque ZXing non chargée'; st.style.color = 'var(--danger-color)'; }
     return;
   }
 
   try {
-    const video = $('qr-camera-video');
-    state.cameraStream = stream;
-    video.srcObject = stream;
-    video.setAttribute('playsinline', '');
-    video.setAttribute('muted', '');
-    video.muted = true;
+    _zxingReader = new ZXing.BrowserMultiFormatReader();
 
-    await new Promise((resolve, reject) => {
-      video.onloadedmetadata = () => video.play().then(resolve).catch(reject);
-      setTimeout(resolve, 3000); // fallback timeout
-    });
-
-    // Essayer d'activer la torche (téléphones)
-    try {
-      const track = stream.getVideoTracks()[0];
-      const caps = track.getCapabilities?.() || {};
-      if (caps.torch) await track.applyConstraints({ advanced:[{ torch: true }] });
-    } catch(e) {}
+    // Lister les caméras disponibles
+    const devices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
+    // Préférer la caméra arrière (environment)
+    let deviceId = undefined;
+    if (devices && devices.length > 0) {
+      const rear = devices.find(d => /back|rear|environment/i.test(d.label));
+      deviceId = rear ? rear.deviceId : devices[devices.length - 1].deviceId;
+    }
 
     if (st) { st.textContent = 'Pointez vers le QR code…'; st.style.color = ''; }
-    startQRScanLoop();
+
+    // Lancer le décodage continu depuis la vidéo
+    await _zxingReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
+      if (result) {
+        const data = result.getText();
+        const st2 = $('camera-qr-status');
+        if (st2) { st2.textContent = '✓ QR détecté !'; st2.style.color = 'var(--success-color, #10b981)'; }
+        playSound('qr');
+        stopCamera();
+        handleQRScanned(data);
+      }
+      // Les erreurs "not found" sont normales — ne pas afficher
+      if (err && !(err instanceof ZXing.NotFoundException)) {
+        console.warn('ZXing scan error:', err.message);
+      }
+    });
+
+    // Sauvegarder le stream pour pouvoir l'arrêter
+    state.cameraStream = video.srcObject;
+
   } catch(err) {
-    if (st) { st.textContent = 'Erreur vidéo: ' + err.message; st.style.color = 'var(--danger-color)'; }
-    stream.getTracks().forEach(t => t.stop());
+    console.error('Camera error:', err);
+    let msg = 'Caméra inaccessible';
+    if (err.name === 'NotAllowedError') msg = 'Permission caméra refusée — autorisez dans les paramètres';
+    else if (err.name === 'NotFoundError') msg = 'Aucune caméra détectée sur cet appareil';
+    else if (err.name === 'NotReadableError') msg = 'Caméra déjà utilisée par une autre application';
+    else msg = 'Erreur caméra : ' + err.message;
+    if (st) { st.textContent = msg; st.style.color = 'var(--danger-color)'; }
   }
 }
 
-function startQRScanLoop() {
-  const video  = $('qr-camera-video');
-  const canvas = $('qr-camera-canvas');
-  const ctx    = canvas.getContext('2d');
-  let lastData = null;
-  let debounce = 0;
-  let ticks = 0;
-
-  const scan = () => {
-    state.cameraScanRAF = requestAnimationFrame(scan);
-    ticks++;
-    if (ticks % 3 !== 0) return; // ~20fps
-
-    if (!video || video.paused || video.ended) return;
-    if (video.readyState < 2) return; // HAVE_CURRENT_DATA
-    const w = video.videoWidth, h = video.videoHeight;
-    if (!w || !h) return;
-
-    canvas.width = w; canvas.height = h;
-    ctx.drawImage(video, 0, 0, w, h);
-    const imageData = ctx.getImageData(0, 0, w, h);
-
-    if (!window.jsQR) return;
-    const code = jsQR(imageData.data, w, h, { inversionAttempts: 'attemptBoth' });
-    if (!code) return;
-
-    const now = Date.now();
-    if (code.data === lastData && now - debounce < 1500) return;
-    lastData = code.data; debounce = now;
-
-    const st = $('camera-qr-status');
-    if (st) { st.textContent = '✓ QR détecté !'; st.style.color = 'var(--success-color, #10b981)'; }
-    playSound('qr');
-
-    stopCamera();
-    handleQRScanned(code.data);
-  };
-
-  state.cameraScanRAF = requestAnimationFrame(scan);
-}
-
 function stopCamera() {
-  if (state.cameraScanRAF) { cancelAnimationFrame(state.cameraScanRAF); state.cameraScanRAF = null; }
-  if (state.cameraScanInterval) { clearInterval(state.cameraScanInterval); state.cameraScanInterval = null; }
+  // Réinitialiser ZXing (arrête le stream interne)
+  try {
+    if (_zxingReader) { _zxingReader.reset(); _zxingReader = null; }
+  } catch(e) {}
+
+  // Arrêter le stream si encore actif
   if (state.cameraStream) {
-    // Éteindre la torche avant d'arrêter
-    try {
-      const track = state.cameraStream.getVideoTracks()[0];
-      track.applyConstraints?.({ advanced: [{ torch: false }] });
-    } catch(e) {}
     state.cameraStream.getTracks().forEach(t => t.stop());
     state.cameraStream = null;
   }
   const video = $('qr-camera-video');
   if (video) { video.srcObject = null; }
+
+  // Nettoyage anciens RAF (compatibilité)
+  if (state.cameraScanRAF) { cancelAnimationFrame(state.cameraScanRAF); state.cameraScanRAF = null; }
+  if (state.cameraScanInterval) { clearInterval(state.cameraScanInterval); state.cameraScanInterval = null; }
 }
 
 async function scanQRFromFile(file) {
   return new Promise(resolve => {
     const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width; canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, img.width, img.height);
-        if (window.jsQR) { const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts:'attemptBoth' }); resolve(code ? code.data : null); }
-        else resolve(null);
-      };
-      img.src = e.target.result;
+    reader.onload = async e => {
+      try {
+        if (window.ZXing) {
+          const zx = new ZXing.BrowserMultiFormatReader();
+          const img = new Image();
+          img.onload = async () => {
+            try {
+              const result = await zx.decodeFromImageElement(img);
+              resolve(result ? result.getText() : null);
+            } catch(err) { resolve(null); }
+          };
+          img.src = e.target.result;
+        } else { resolve(null); }
+      } catch(err) { resolve(null); }
     };
     reader.readAsDataURL(file);
   });
@@ -367,7 +331,7 @@ function loginFromQR(obj) {
   db.setSetting('initialized','1');
   // Ajouter/màj dans members
   if (!db.getMemberByUserId(userId)) {
-    db.addMember({ user_id:userId, first_name:obj.fn||'', last_name:obj.ln||'', email:obj.em, password:obj.pw||'', photo:obj.ph||'', role:'manager' });
+    db.apiSaveMember({ user_id:userId, first_name:obj.fn||'', last_name:obj.ln||'', email:obj.em, password:obj.pw||'', photo:obj.ph||'', role:'manager' });
   }
   db.setCurrentUser(userId);
   showToast(`Bienvenue ${obj.fn||''}!`, 'success');
@@ -418,17 +382,20 @@ function confirmJoin() {
   const mgrUserId = inv.uid || inv.mid;
   if (mgrUserId && !db.getMemberByUserId(mgrUserId)) {
     const parts = (inv.mn||'').split(' ');
-    db.addMember({ user_id:mgrUserId, first_name:parts[0]||'Gestionnaire', last_name:parts.slice(1).join(' '), email:inv.me||'', role:'manager' });
-    // Si la DB est vide, créer aussi le profil
+    const mgrData = { user_id:mgrUserId, first_name:parts[0]||'Gestionnaire', last_name:parts.slice(1).join(' '), email:inv.me||'', role:'manager' };
+    db.apiSaveMember(mgrData);
     const p = db.getProfile();
     if (!p.user_id || p.user_id === '') {
       db.saveProfile({ user_id:mgrUserId, first_name:parts[0]||'Gestionnaire', last_name:parts.slice(1).join(' '), email:inv.me||'' });
     }
   }
 
-  // Créer le membre
+  // Créer le nouveau membre en local ET sur le serveur
   const userId = (typeof crypto!=='undefined'&&crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36);
-  db.addMember({ user_id:userId, first_name:fn, last_name:ln, email:'', password:pw, photo, role:'member' });
+  const newMemberData = { user_id:userId, first_name:fn, last_name:ln, email:'', password:pw, photo, role:'member' };
+  db.apiSaveMember(newMemberData).then(res => {
+    if (!res.ok) console.warn('Sync membre rejoindre:', res.error);
+  });
   db.setSetting('initialized','1');
   db.setCurrentUser(userId);
 
@@ -1323,19 +1290,32 @@ function shareApp() {
 }
 
 // ─── Onboarding ───
-function showOnboarding() {
+async function showOnboarding() {
   const screen = $('onboarding-screen');
   if (screen) screen.classList.remove('hidden');
 
-  const members = db.getMembers();
-  const hasMembers = members.length > 0;
+  // Toujours charger les membres depuis le SERVEUR pour être à jour
+  const serverRes = await db.apiGetMembers();
+  let members = db.getMembers(); // local comme fallback
 
-  if (hasMembers) {
-    // Afficher la liste des membres pour sélection
+  if (serverRes.ok && serverRes.members && serverRes.members.length > 0) {
+    // Injecter dans le DB local pour avoir un cache cohérent
+    serverRes.members.forEach(m => {
+      const existing = db.getMemberByUserId(m.user_id);
+      if (!existing) {
+        db.db.run(
+          `INSERT OR IGNORE INTO members (user_id,first_name,last_name,email,photo,role) VALUES (?,?,?,?,?,?)`,
+          [m.user_id, m.first_name, m.last_name, m.email, m.photo||'', m.role]
+        );
+      }
+    });
+    members = serverRes.members;
+  }
+
+  if (members.length > 0) {
     showMemberLoginList(members);
     setOnboardTab('login');
   } else {
-    // Aucun membre = première installation, afficher création gestionnaire
     setOnboardTab('create');
   }
 }
@@ -1555,7 +1535,15 @@ function initEventListeners() {
 
     // Vérifier qu'il n'y a pas déjà un gestionnaire
     if (db.hasManager()) {
-      showToast('Ce ménage a déjà un gestionnaire. Utilisez "Rejoindre le ménage" pour vous connecter.','error');
+      showToast('Ce ménage a déjà un gestionnaire. Connectez-vous avec votre email.','error');
+      setOnboardTab('login');
+      return;
+    }
+
+    // Vérifier que l'email n'est pas déjà utilisé
+    if (db.getMemberByEmail(em)) {
+      showToast('Cet email est déjà utilisé — connectez-vous','error');
+      setOnboardTab('login');
       return;
     }
 
@@ -1564,8 +1552,11 @@ function initEventListeners() {
     db.setSetting('lang', lang); db.setSetting('currency', currency); db.setSetting('theme','light'); db.setSetting('initialized','1');
     state.currency = currency;
 
-    // Ajouter comme gestionnaire dans members
-    db.addMember({ user_id:userId, first_name:fn, last_name:ln, email:em, password:pw, photo, role:'manager' });
+    // Ajouter comme gestionnaire en local ET sur le serveur
+    const memberData = { user_id:userId, first_name:fn, last_name:ln, email:em, password:pw, photo, role:'manager' };
+    db.apiSaveMember(memberData).then(res => {
+      if (!res.ok) console.warn('Sync membre serveur:', res.error);
+    });
     db.setCurrentUser(userId);
 
     state.lang?.setLanguage(lang);
@@ -1574,20 +1565,89 @@ function initEventListeners() {
     applyLoginAfterInit();
   });
 
-  // Connexion par sélection de membre
-  $('member-login-btn')?.addEventListener('click', ()=>{
+  // Connexion par email+mot de passe — toujours vérifier sur le SERVEUR
+  $('email-login-btn')?.addEventListener('click', async ()=>{
+    const em = $('login-email').value.trim();
+    const pw = $('login-password').value;
+    if (!em) { showToast('Email requis','error'); return; }
+    if (!pw) { showToast('Mot de passe requis','error'); return; }
+
+    const btn = $('email-login-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Vérification…'; }
+
+    // 1. Essai serveur (source de vérité)
+    const res = await db.apiAuth(em, pw);
+    if (res.ok && res.member) {
+      // Synchroniser le membre localement si absent
+      const existing = db.getMemberByUserId(res.member.user_id);
+      if (!existing) {
+        db.db.run(
+          `INSERT OR IGNORE INTO members (user_id,first_name,last_name,email,photo,role) VALUES (?,?,?,?,?,?)`,
+          [res.member.user_id, res.member.first_name, res.member.last_name,
+           res.member.email, res.member.photo||'', res.member.role]
+        );
+      }
+      db.setSetting('initialized','1');
+      db.setCurrentUser(res.member.user_id);
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class=\'fas fa-sign-in-alt\'></i> Se connecter'; }
+      showToast(`Bienvenue ${res.member.first_name||''} !`,'success');
+      applyLoginAfterInit();
+      return;
+    }
+
+    // 2. Fallback local (si hors ligne)
+    const localMember = db.getMemberByEmail(em);
+    if (localMember && localMember.password === pw) {
+      db.setSetting('initialized','1');
+      db.setCurrentUser(localMember.user_id);
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class=\'fas fa-sign-in-alt\'></i> Se connecter'; }
+      showToast(`Bienvenue ${localMember.first_name||''} ! (mode hors ligne)`,'success');
+      applyLoginAfterInit();
+      return;
+    }
+
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class=\'fas fa-sign-in-alt\'></i> Se connecter'; }
+    showToast(res.error || 'Email ou mot de passe incorrect','error');
+  });
+
+  $('login-password')?.addEventListener('keydown', e=>{
+    if (e.key === 'Enter') $('email-login-btn')?.click();
+  });
+  $('login-email-pw-toggle')?.addEventListener('click', ()=> togglePw('login-password', $('login-email-pw-toggle')));
+
+  // Connexion par sélection de membre (grille)
+  $('member-login-btn')?.addEventListener('click', async ()=>{
     const uid = $('selected-member-uid')?.value;
     const pw = $('member-login-password')?.value;
     if (!uid) { showToast('Sélectionnez votre profil','error'); return; }
     if (!pw) { showToast('Mot de passe requis','error'); return; }
 
+    const btn = $('member-login-btn');
+    if (btn) { btn.disabled=true; btn.textContent='Vérification…'; }
+
+    // Récupérer l'email du membre sélectionné pour vérification serveur
+    const localM = db.getMemberByUserId(uid);
+    if (localM && localM.email) {
+      const res = await db.apiAuth(localM.email, pw);
+      if (res.ok && res.member) {
+        db.setSetting('initialized','1');
+        db.setCurrentUser(uid);
+        if (btn) { btn.disabled=false; btn.innerHTML='<i class=\'fas fa-sign-in-alt\'></i> Se connecter'; }
+        showToast(`Bienvenue ${res.member.first_name||''} !`,'success');
+        applyLoginAfterInit();
+        return;
+      }
+    }
+
+    // Fallback local
     if (db.verifyMemberPassword(uid, pw)) {
       db.setSetting('initialized','1');
       db.setCurrentUser(uid);
-      const m = db.getMemberByUserId(uid);
-      showToast(`Bienvenue ${m?.first_name||''} !`,'success');
+      if (btn) { btn.disabled=false; btn.innerHTML='<i class=\'fas fa-sign-in-alt\'></i> Se connecter'; }
+      showToast(`Bienvenue ${localM?.first_name||''} !`,'success');
       applyLoginAfterInit();
     } else {
+      if (btn) { btn.disabled=false; btn.innerHTML='<i class=\'fas fa-sign-in-alt\'></i> Se connecter'; }
       showToast('Mot de passe incorrect','error');
     }
   });
