@@ -178,110 +178,92 @@ function sendPushNotification(title, body, icon = '/favicon.png') {
   } catch(e) {}
 }
 
-// ─── Caméra QR Scanner (ZXing-js) ───
-let _zxingReader = null;
+// ─── Caméra QR Scanner (nimiq/qr-scanner — mobile-first) ───
+let _qrScanner = null;
 
 function startCameraQRScan(mode) {
   state.cameraScanMode = mode;
   openModal('camera-qr-modal');
   const st = $('camera-qr-status');
   if (st) { st.textContent = 'Démarrage de la caméra…'; st.style.color = ''; }
-  startZxingCamera();
+  startNimiqCamera();
 }
 
-async function startZxingCamera() {
-  const st = $('camera-qr-status');
+async function startNimiqCamera() {
+  const st    = $('camera-qr-status');
   const video = $('qr-camera-video');
 
-  // Vérifier que ZXing est disponible
-  if (!window.ZXing) {
-    if (st) { st.textContent = 'Erreur : bibliothèque ZXing non chargée'; st.style.color = 'var(--danger-color)'; }
+  if (!window.QrScanner) {
+    if (st) { st.textContent = 'Erreur : bibliothèque QrScanner non chargée'; st.style.color = 'var(--danger-color)'; }
+    return;
+  }
+
+  // Vérifier que le navigateur a une caméra
+  const hasCamera = await QrScanner.hasCamera();
+  if (!hasCamera) {
+    if (st) { st.textContent = 'Aucune caméra détectée sur cet appareil'; st.style.color = 'var(--danger-color)'; }
     return;
   }
 
   try {
-    _zxingReader = new ZXing.BrowserMultiFormatReader();
-
-    // Lister les caméras disponibles
-    const devices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
-    // Préférer la caméra arrière (environment)
-    let deviceId = undefined;
-    if (devices && devices.length > 0) {
-      const rear = devices.find(d => /back|rear|environment/i.test(d.label));
-      deviceId = rear ? rear.deviceId : devices[devices.length - 1].deviceId;
-    }
-
-    if (st) { st.textContent = 'Pointez vers le QR code…'; st.style.color = ''; }
-
-    // Lancer le décodage continu depuis la vidéo
-    await _zxingReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
-      if (result) {
-        const data = result.getText();
+    _qrScanner = new QrScanner(
+      video,
+      result => {
+        const data = result.data || result;
         const st2 = $('camera-qr-status');
         if (st2) { st2.textContent = '✓ QR détecté !'; st2.style.color = 'var(--success-color, #10b981)'; }
         playSound('qr');
         stopCamera();
         handleQRScanned(data);
+      },
+      {
+        returnDetailedScanResult: true,
+        preferredCamera: 'environment',   // caméra arrière par défaut
+        highlightScanRegion: true,        // cadre visuel sur la zone de scan
+        highlightCodeOutline: true,       // outline autour du QR détecté
+        maxScansPerSecond: 10
       }
-      // Les erreurs "not found" sont normales — ne pas afficher
-      if (err && !(err instanceof ZXing.NotFoundException)) {
-        console.warn('ZXing scan error:', err.message);
-      }
-    });
+    );
 
-    // Sauvegarder le stream pour pouvoir l'arrêter
-    state.cameraStream = video.srcObject;
+    await _qrScanner.start();
+    if (st) { st.textContent = 'Pointez vers le QR code…'; st.style.color = ''; }
 
   } catch(err) {
     console.error('Camera error:', err);
     let msg = 'Caméra inaccessible';
-    if (err.name === 'NotAllowedError') msg = 'Permission caméra refusée — autorisez dans les paramètres';
-    else if (err.name === 'NotFoundError') msg = 'Aucune caméra détectée sur cet appareil';
-    else if (err.name === 'NotReadableError') msg = 'Caméra déjà utilisée par une autre application';
-    else msg = 'Erreur caméra : ' + err.message;
+    if (/not allowed/i.test(err.message)||err.name==='NotAllowedError')
+      msg = 'Permission caméra refusée — autorisez dans les paramètres du navigateur';
+    else if (/not found/i.test(err.message)||err.name==='NotFoundError')
+      msg = 'Aucune caméra détectée';
+    else if (/in use/i.test(err.message)||err.name==='NotReadableError')
+      msg = 'Caméra déjà utilisée par une autre application';
+    else
+      msg = 'Erreur caméra : ' + err.message;
     if (st) { st.textContent = msg; st.style.color = 'var(--danger-color)'; }
   }
 }
 
 function stopCamera() {
-  // Réinitialiser ZXing (arrête le stream interne)
   try {
-    if (_zxingReader) { _zxingReader.reset(); _zxingReader = null; }
+    if (_qrScanner) { _qrScanner.stop(); _qrScanner.destroy(); _qrScanner = null; }
   } catch(e) {}
-
-  // Arrêter le stream si encore actif
+  // Nettoyage anciens RAF/interval (compatibilité)
+  if (state.cameraScanRAF)      { cancelAnimationFrame(state.cameraScanRAF); state.cameraScanRAF = null; }
+  if (state.cameraScanInterval) { clearInterval(state.cameraScanInterval); state.cameraScanInterval = null; }
   if (state.cameraStream) {
     state.cameraStream.getTracks().forEach(t => t.stop());
     state.cameraStream = null;
   }
   const video = $('qr-camera-video');
   if (video) { video.srcObject = null; }
-
-  // Nettoyage anciens RAF (compatibilité)
-  if (state.cameraScanRAF) { cancelAnimationFrame(state.cameraScanRAF); state.cameraScanRAF = null; }
-  if (state.cameraScanInterval) { clearInterval(state.cameraScanInterval); state.cameraScanInterval = null; }
 }
 
 async function scanQRFromFile(file) {
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = async e => {
-      try {
-        if (window.ZXing) {
-          const zx = new ZXing.BrowserMultiFormatReader();
-          const img = new Image();
-          img.onload = async () => {
-            try {
-              const result = await zx.decodeFromImageElement(img);
-              resolve(result ? result.getText() : null);
-            } catch(err) { resolve(null); }
-          };
-          img.src = e.target.result;
-        } else { resolve(null); }
-      } catch(err) { resolve(null); }
-    };
-    reader.readAsDataURL(file);
-  });
+  try {
+    if (!window.QrScanner) return null;
+    const result = await QrScanner.scanImage(file, { returnDetailedScanResult: true });
+    return result ? (result.data || result) : null;
+  } catch(e) { return null; }
 }
 
 // ─── QR scanné : traitement ───
