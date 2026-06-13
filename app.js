@@ -1,5 +1,10 @@
 /**
- * Menap App V2.0
+ * Menap App v4.1
+ * - Multi-profils : gestionnaire + membres, chacun avec mot de passe
+ * - Login par sélection depuis la liste des membres
+ * - Rejoindre via QR du gestionnaire → formulaire puis ajouté comme membre
+ * - Sons (Web Audio API) et notifications push
+ * - Scanner QR amélioré pour téléphones
  */
 
 // ─── État global ───
@@ -12,17 +17,17 @@ const state = {
   cameraStream: null,
   cameraScanMode: null,
   cameraScanInterval: null,
+  cameraScanRAF: null,
   lang: null,
   currency: 'BIF',
   theme: 'light',
-  calcTarget: null
+  calcTarget: null,
+  pendingJoinData: null  // données QR d'invitation en attente
 };
 
-// ─── Devises ───
 const CURRENCY_SYMBOLS = { BIF: 'FBu', RWF: 'FRw', EUR: '€', USD: '$' };
 const MONTHS_FR = ['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'];
 
-// ─── Utilitaires ───
 const $ = id => document.getElementById(id);
 const fmt = n => {
   const sym = CURRENCY_SYMBOLS[state.currency] || state.currency;
@@ -36,10 +41,10 @@ const escAttr = s => String(s||'').replace(/'/g,"\\'");
 
 function calcEndDate(start, type, val) {
   const d = new Date(start); const v = parseInt(val)||1;
-  if (type==='day') d.setDate(d.getDate()+v);
-  else if (type==='week') d.setDate(d.getDate()+v*7);
+  if (type==='day')   d.setDate(d.getDate()+v);
+  else if (type==='week')  d.setDate(d.getDate()+v*7);
   else if (type==='month') d.setMonth(d.getMonth()+v);
-  else if (type==='year') d.setFullYear(d.getFullYear()+v);
+  else if (type==='year')  d.setFullYear(d.getFullYear()+v);
   d.setDate(d.getDate()-1);
   return d.toISOString().split('T')[0];
 }
@@ -49,10 +54,12 @@ function showToast(msg, type='info') {
   const el = document.createElement('div');
   el.textContent = msg;
   const bg = type==='error'?'#f43f5e':type==='success'?'#10b981':'#0d9488';
-  el.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:${bg};color:white;padding:10px 20px;border-radius:20px;font-weight:700;font-size:14px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);white-space:nowrap;animation:toastIn .2s ease-out;pointer-events:none;max-width:90vw;text-align:center`;
+  el.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:${bg};color:white;padding:10px 20px;border-radius:20px;font-weight:700;font-size:14px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.3);white-space:nowrap;animation:toastIn .2s ease-out;pointer-events:none;max-width:90vw;text-align:center`;
   document.body.appendChild(el);
-  setTimeout(()=>el.remove(), 3000);
-  playSound(type);
+  setTimeout(()=>el.remove(), 3200);
+  // Son
+  if (type==='success') playSound('success');
+  else if (type==='error') playSound('error');
 }
 
 function showLoading(show, text='Chargement...') {
@@ -60,178 +67,13 @@ function showLoading(show, text='Chargement...') {
   const t = $('loading-text'); if (t) t.textContent = text;
 }
 
-// ─── Effets Sonores et Notifications ───
-function playSound(type) {
-  if (db.getSetting('sound', '1') !== '1') return;
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (!ctx) return;
-    
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    const now = ctx.currentTime;
-    
-    if (type === 'success') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, now); // C5
-      osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
-      gain.gain.setValueAtTime(0.1, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-      osc.start(now);
-      osc.stop(now + 0.3);
-    } else if (type === 'error') {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(150, now);
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-      osc.start(now);
-      osc.stop(now + 0.4);
-    } else if (type === 'delete') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(300, now);
-      osc.frequency.exponentialRampToValueAtTime(100, now + 0.2);
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-      osc.start(now);
-      osc.stop(now + 0.25);
-    } else if (type === 'notification') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, now); // D5
-      osc.frequency.setValueAtTime(880, now + 0.12); // A5
-      gain.gain.setValueAtTime(0.1, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-      osc.start(now);
-      osc.stop(now + 0.35);
-    } else {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(600, now);
-      gain.gain.setValueAtTime(0.05, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-      osc.start(now);
-      osc.stop(now + 0.1);
-    }
-  } catch (e) {
-    console.warn('Web Audio error:', e);
-  }
-}
-
-function sendLocalNotification(title, body) {
-  if (db.getSetting('notifications', '0') === '1' && Notification.permission === 'granted') {
-    try {
-      new Notification(title, {
-        body: body,
-        icon: 'favicon.png'
-      });
-      playSound('notification');
-    } catch (e) {
-      console.warn('Local notification error:', e);
-    }
-  }
-}
-
-// ─── Polling adhésion et Compléter Profil ───
-let joinPollTimer = null;
-function startJoinPoll(joinUserId) {
-  if (joinPollTimer) clearInterval(joinPollTimer);
-  joinPollTimer = setInterval(async () => {
-    if (!navigator.onLine) return;
-    try {
-      const resp = await fetch('https://sigra.xo.je/menap/api.php', { cache: 'no-store' });
-      if (resp.ok && resp.status !== 204) {
-        const buf = await resp.arrayBuffer();
-        if (buf.byteLength > 100) {
-          db.db = new db.SQL.Database(new Uint8Array(buf));
-          const member = db.getMemberByUserId(joinUserId);
-          if (member) {
-            clearInterval(joinPollTimer);
-            joinPollTimer = null;
-            closeModal('join-request-modal');
-            showToast('Demande acceptée par le gérant !', 'success');
-            
-            localStorage.setItem('menap_current_user_id', joinUserId);
-            localStorage.removeItem('menap_pending_join_uid');
-            
-            openCompleteProfileModal(joinUserId);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Error polling join request status:', e);
-    }
-  }, 4000);
-}
-
-function stopJoinPoll() {
-  if (joinPollTimer) {
-    clearInterval(joinPollTimer);
-    joinPollTimer = null;
-  }
-}
-
-function openCompleteProfileModal(userId) {
-  $('complete-first-name').value = '';
-  $('complete-last-name').value = '';
-  $('complete-email').value = '';
-  $('complete-password').value = '';
-  const preview = $('complete-pic-preview');
-  if (preview) {
-    preview.dataset.photo = '';
-    preview.innerHTML = `<i class="fas fa-user" style="font-size:20px;color:var(--text-muted)"></i>`;
-  }
-  openModal('complete-profile-modal');
-}
-
-function saveCompleteProfile() {
-  const userId = localStorage.getItem('menap_current_user_id');
-  if (!userId) {
-    showToast('Session non valide. Recommencez la demande.', 'error');
-    closeModal('complete-profile-modal');
-    showOnboarding();
-    return;
-  }
-  const fn = $('complete-first-name').value.trim();
-  const ln = $('complete-last-name').value.trim();
-  const em = $('complete-email').value.trim();
-  const pw = $('complete-password').value;
-  const photo = $('complete-pic-preview')?.dataset.photo || '';
-  
-  if (!fn) { showToast('Prénom requis', 'error'); return; }
-  if (!em) { showToast('Email requis', 'error'); return; }
-  if (!pw || pw.length < 4) { showToast('Mot de passe trop court (min. 4 caractères)', 'error'); return; }
-  
-  db.saveProfile({
-    user_id: userId,
-    first_name: fn,
-    last_name: ln,
-    email: em,
-    password: pw,
-    photo: photo
-  });
-  
-  db.setSetting('initialized', '1');
-  db.setSetting('theme', 'light');
-  loadSettings();
-  hideOnboarding();
-  updateSettingsProfile();
-  updateHeaderDate();
-  renderDashboard();
-  
-  closeModal('complete-profile-modal');
-  showToast(`Compte complété ! Bienvenue ${fn} !`, 'success');
-  db.startPolling(15000);
-}
-
-// ─── Toggle password ───
 function togglePw(inputId, btn) {
   const input = $(inputId);
   input.type = input.type==='password' ? 'text' : 'password';
   btn.querySelector('i').className = input.type==='password' ? 'fas fa-eye' : 'fas fa-eye-slash';
 }
 
-// ─── QR Code ───
+// ─── QR Code génération ───
 function generateQR(containerId, text, size=220) {
   const container = $(containerId);
   if (!container) return;
@@ -241,58 +83,99 @@ function generateQR(containerId, text, size=220) {
     return;
   }
   try {
-    new QRCode(container, {
-      text, width: size, height: size,
-      colorDark: '#1f2937', colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.L
-    });
-    setTimeout(() => {
-      const img = container.querySelector('img');
-      const canvas = container.querySelector('canvas');
-      const s = `display:block!important;width:${size}px!important;height:${size}px!important;max-width:100%`;
-      if (img) img.style.cssText = s;
-      if (canvas) canvas.style.cssText = s;
-    }, 80);
+    new QRCode(container, { text, width:size, height:size,
+      colorDark:'#0d9488', colorLight:'#ffffff',
+      correctLevel: QRCode.CorrectLevel.M });
   } catch(e) {
-    container.innerHTML = `<div style="color:red;font-size:12px;padding:10px">Erreur QR: ${e.message}</div>`;
+    container.innerHTML = `<div style="font-size:10px;word-break:break-all;padding:10px">${escHtml(text)}</div>`;
   }
-}
-
-function getQRDataUrl(containerId) {
-  const c = $(containerId);
-  if (!c) return null;
-  const canvas = c.querySelector('canvas');
-  const img = c.querySelector('img');
-  if (canvas) return canvas.toDataURL('image/png');
-  if (img) return img.src;
-  return null;
-}
-
-function downloadQR(containerId, filename='menap-qr.png') {
-  const url = getQRDataUrl(containerId);
-  if (!url) { showToast('QR non disponible','error'); return; }
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-}
-
-function generateAuthQR(containerId) {
-  const p = db.getProfile();
-  // Payload léger (errorCorrectionLevel L = faible densité)
-  const data = JSON.stringify({ _m:3, fn:p.first_name, ln:p.last_name, em:p.email, pw:p.password, la: db.getSetting('lang','fr'), cu: db.getSetting('currency','BIF'), th: db.getSetting('theme','light') });
-  generateQR(containerId, data, 220);
 }
 
 function generateInviteQR(containerId) {
   const p = db.getProfile();
   const data = JSON.stringify({
-    _t: 'invite',
-    uid: p.user_id,   // uid du gestionnaire invitant
-    mid: p.user_id,
-    mn: `${p.first_name} ${p.last_name}`.trim(),
-    me: p.email,
-    at: Date.now()
+    _t: 'invite', uid: p.user_id, mid: p.user_id,
+    mn: `${p.first_name} ${p.last_name}`.trim(), me: p.email, at: Date.now()
   });
   generateQR(containerId, data, 220);
+}
+
+function downloadQR(containerId, filename) {
+  const container = $(containerId);
+  const img = container?.querySelector('img');
+  const canvas = container?.querySelector('canvas');
+  let url;
+  if (canvas) url = canvas.toDataURL('image/png');
+  else if (img) url = img.src;
+  else { showToast('QR non disponible', 'error'); return; }
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+}
+
+// ─── Sons (Web Audio API) ───
+let _audioCtx = null;
+function _getAudioCtx() {
+  if (!_audioCtx) {
+    try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  return _audioCtx;
+}
+
+function playSound(type) {
+  if (db.getSetting('sound','1') !== '1') return;
+  const ctx = _getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  if (type === 'success') {
+    osc.frequency.setValueAtTime(523, ctx.currentTime);
+    osc.frequency.setValueAtTime(659, ctx.currentTime + 0.08);
+    osc.frequency.setValueAtTime(784, ctx.currentTime + 0.16);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4);
+  } else if (type === 'error') {
+    osc.frequency.setValueAtTime(330, ctx.currentTime);
+    osc.frequency.setValueAtTime(220, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.25);
+  } else if (type === 'notify') {
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1047, ctx.currentTime + 0.06);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.2);
+  } else if (type === 'qr') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200, ctx.currentTime);
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.15);
+  }
+}
+
+// ─── Notifications Push ───
+async function requestPushPermission() {
+  if (!('Notification' in window)) {
+    showToast('Notifications non supportées sur cet appareil', 'error'); return false;
+  }
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') {
+    showToast('Notifications bloquées — autorisez-les dans les paramètres du navigateur', 'error'); return false;
+  }
+  const perm = await Notification.requestPermission();
+  return perm === 'granted';
+}
+
+function sendPushNotification(title, body, icon = '/favicon.png') {
+  if (db.getSetting('push_notif','1') !== '1') return;
+  if (Notification.permission !== 'granted') return;
+  try {
+    new Notification(title, { body, icon, badge: icon, vibrate: [200, 100, 200] });
+    playSound('notify');
+  } catch(e) {}
 }
 
 // ─── Caméra QR Scanner ───
@@ -300,47 +183,63 @@ function startCameraQRScan(mode) {
   state.cameraScanMode = mode;
   openModal('camera-qr-modal');
   const st = $('camera-qr-status');
-  if (st) st.textContent = '';
+  if (st) { st.textContent = 'Démarrage de la caméra…'; st.style.color = ''; }
   startCamera();
 }
 
 async function startCamera() {
   const st = $('camera-qr-status');
-  // Essayer caméra arrière, puis avant, puis sans contrainte
-  const constraints = [
-    { video: { facingMode: { ideal: 'environment' }, width:{ideal:640}, height:{ideal:480} } },
-    { video: { facingMode: 'user', width:{ideal:640}, height:{ideal:480} } },
+  let stream = null;
+
+  // Essayer avec facingMode sans contrainte de résolution (plus compatible mobile)
+  const strategies = [
+    { video: { facingMode: { ideal: 'environment' } } },
+    { video: { facingMode: 'environment' } },
     { video: true }
   ];
-  let stream = null;
-  let lastErr = '';
-  for (const c of constraints) {
+
+  for (const constraints of strategies) {
     try {
-      stream = await navigator.mediaDevices.getUserMedia(c);
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
       break;
     } catch(e) {
-      lastErr = e.name + ': ' + e.message;
+      console.warn('Camera attempt failed:', constraints, e.name);
     }
   }
+
   if (!stream) {
     if (st) {
-      st.textContent = 'Caméra non accessible — ' + lastErr;
+      st.textContent = 'Caméra inaccessible — vérifiez les permissions de l\'application';
       st.style.color = 'var(--danger-color)';
     }
     return;
   }
+
   try {
     const video = $('qr-camera-video');
     state.cameraStream = stream;
     video.srcObject = stream;
     video.setAttribute('playsinline', '');
-    video.setAttribute('autoplay', '');
     video.setAttribute('muted', '');
-    await video.play();
-    if (st) { st.textContent = 'Pointez la caméra vers un QR code…'; st.style.color = ''; }
+    video.muted = true;
+
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = () => video.play().then(resolve).catch(reject);
+      setTimeout(resolve, 3000); // fallback timeout
+    });
+
+    // Essayer d'activer la torche (téléphones)
+    try {
+      const track = stream.getVideoTracks()[0];
+      const caps = track.getCapabilities?.() || {};
+      if (caps.torch) await track.applyConstraints({ advanced:[{ torch: true }] });
+    } catch(e) {}
+
+    if (st) { st.textContent = 'Pointez vers le QR code…'; st.style.color = ''; }
     startQRScanLoop();
   } catch(err) {
     if (st) { st.textContent = 'Erreur vidéo: ' + err.message; st.style.color = 'var(--danger-color)'; }
+    stream.getTracks().forEach(t => t.stop());
   }
 }
 
@@ -350,43 +249,55 @@ function startQRScanLoop() {
   const ctx    = canvas.getContext('2d');
   let lastData = null;
   let debounce = 0;
+  let ticks = 0;
 
-  state.cameraScanInterval = setInterval(() => {
-    // Attendre que la vidéo soit prête ET ait des dimensions valides
-    if (video.readyState < video.HAVE_CURRENT_DATA) return;
+  const scan = () => {
+    state.cameraScanRAF = requestAnimationFrame(scan);
+    ticks++;
+    if (ticks % 3 !== 0) return; // ~20fps
+
+    if (!video || video.paused || video.ended) return;
+    if (video.readyState < 2) return; // HAVE_CURRENT_DATA
     const w = video.videoWidth, h = video.videoHeight;
     if (!w || !h) return;
 
-    canvas.width = w;
-    canvas.height = h;
+    canvas.width = w; canvas.height = h;
     ctx.drawImage(video, 0, 0, w, h);
-
     const imageData = ctx.getImageData(0, 0, w, h);
-    if (!window.jsQR) return;
 
-    // attemptBoth = détecte codes clairs ET sombres (meilleure compatibilité)
+    if (!window.jsQR) return;
     const code = jsQR(imageData.data, w, h, { inversionAttempts: 'attemptBoth' });
     if (!code) return;
 
-    // Anti-rebond : ignorer le même code pendant 1,5 s
     const now = Date.now();
     if (code.data === lastData && now - debounce < 1500) return;
-    lastData = code.data;
-    debounce = now;
+    lastData = code.data; debounce = now;
 
     const st = $('camera-qr-status');
-    if (st) { st.textContent = '✓ QR détecté !'; st.style.color = 'var(--primary-color)'; }
+    if (st) { st.textContent = '✓ QR détecté !'; st.style.color = 'var(--success-color, #10b981)'; }
+    playSound('qr');
 
     stopCamera();
     handleQRScanned(code.data);
-  }, 150); // 150 ms = ~6 fps — suffisant et économique
+  };
+
+  state.cameraScanRAF = requestAnimationFrame(scan);
 }
 
 function stopCamera() {
+  if (state.cameraScanRAF) { cancelAnimationFrame(state.cameraScanRAF); state.cameraScanRAF = null; }
   if (state.cameraScanInterval) { clearInterval(state.cameraScanInterval); state.cameraScanInterval = null; }
-  if (state.cameraStream) { state.cameraStream.getTracks().forEach(t=>t.stop()); state.cameraStream = null; }
-  const v = $('qr-camera-video');
-  if (v) v.srcObject = null;
+  if (state.cameraStream) {
+    // Éteindre la torche avant d'arrêter
+    try {
+      const track = state.cameraStream.getVideoTracks()[0];
+      track.applyConstraints?.({ advanced: [{ torch: false }] });
+    } catch(e) {}
+    state.cameraStream.getTracks().forEach(t => t.stop());
+    state.cameraStream = null;
+  }
+  const video = $('qr-camera-video');
+  if (video) { video.srcObject = null; }
 }
 
 async function scanQRFromFile(file) {
@@ -397,9 +308,10 @@ async function scanQRFromFile(file) {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         canvas.width = img.width; canvas.height = img.height;
-        canvas.getContext('2d').drawImage(img, 0, 0);
-        const imageData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-        if (window.jsQR) { const code = jsQR(imageData.data, imageData.width, imageData.height); resolve(code ? code.data : null); }
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+        if (window.jsQR) { const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts:'attemptBoth' }); resolve(code ? code.data : null); }
         else resolve(null);
       };
       img.src = e.target.result;
@@ -408,96 +320,38 @@ async function scanQRFromFile(file) {
   });
 }
 
+// ─── QR scanné : traitement ───
 function handleQRScanned(data) {
   closeModal('camera-qr-modal');
-  const wasOnboard = state.cameraScanMode === 'onboard';
-  const scanMode = state.cameraScanMode;
+  const wasOnboard = state.cameraScanMode === 'onboard' || state.cameraScanMode === 'join';
   state.cameraScanMode = null;
 
   try {
     const obj = JSON.parse(data);
 
-    // QR Join Request (scanné par le gérant pour ajouter un membre)
-    if (obj._t === 'join_request' && obj.uid) {
-      if (!isCurrentUserManager()) {
-        showToast('Seul le gérant peut ajouter un nouveau membre au ménage.', 'error');
-        return;
-      }
-      const exists = db.getMemberByUserId(obj.uid);
-      if (exists) {
-        showToast('Ce membre fait déjà partie du ménage ou sa demande est en cours.', 'info');
-        return;
-      }
-      db.addMember({
-        user_id: obj.uid,
-        first_name: 'Nouveau',
-        last_name: 'Membre',
-        role: 'member'
-      });
-      showToast('Nouveau membre ajouté au ménage ! En attente de ses informations.', 'success');
-      renderMembersList();
-      return;
-    }
-
-    // QR Auth (re-connexion avec profil complet)
-    if (obj._m === 3 && obj.em) {
-      loginFromQR(obj);
-      return;
-    }
+    // QR Auth (re-connexion profil complet)
+    if (obj._m === 3 && obj.em) { loginFromQR(obj); return; }
 
     // QR Invitation ménage
     if (obj._t === 'invite' && (obj.mid || obj.uid)) {
-      // Si on vient de l'onboarding, d'abord vérifier qu'on a un profil local
-      if (wasOnboard) {
-        const p = db.getProfile();
-        if (!p || !p.first_name) {
-          showToast('Créez d\'abord votre profil avant de rejoindre un ménage.', 'error');
-          showOnboarding();
-          return;
-        }
-      }
-      handleJoinHousehold(obj);
-      // Si on venait de l'onboarding, aller au dashboard après avoir rejoint
-      if (wasOnboard) {
-        db.setSetting('initialized','1');
-        hideOnboarding();
-        updateSettingsProfile();
-        updateHeaderDate();
-        renderDashboard();
-      }
+      // Afficher le formulaire de rejoindre avec les infos du QR
+      showJoinForm(obj);
       return;
     }
 
-    // Ancien format .dem intégré dans QR
+    // Ancien format .dem
     if (obj.type === 'menap_auth' && obj.dem) {
       const res = db.importFromDem(obj.dem);
-      if (res && res.ok) {
-        showToast('Données restaurées depuis le QR !','success');
-        hideOnboarding();
-        updateSettingsProfile();
-        updateHeaderDate();
-        renderDashboard();
-      } else {
-        showToast('QR invalide','error');
-      }
+      if (res && res.ok) { showToast('Données restaurées !','success'); applyLoginAfterInit(); }
+      else showToast('QR invalide','error');
       return;
     }
-
     showToast('Format QR non reconnu','error');
-
   } catch(e) {
-    // Tenter comme contenu .menap direct
-    if (data.length > 50) {
+    if (data && data.length > 50) {
       const res = db.importFromDem(data);
-      if (res && res.ok) {
-        showToast('Données restaurées !','success');
-        hideOnboarding();
-        updateSettingsProfile();
-        updateHeaderDate();
-        renderDashboard();
-      } else {
-        showToast('Format QR non reconnu','error');
-      }
+      if (res && res.ok) { showToast('Données restaurées !','success'); applyLoginAfterInit(); }
+      else showToast('Format QR non reconnu — aucun compte reconnu','error');
     } else {
       showToast('QR non reconnu','error');
     }
@@ -505,98 +359,105 @@ function handleQRScanned(data) {
 }
 
 function loginFromQR(obj) {
-  // Enregistrer le profil depuis le QR dans menap.db (push vers serveur via _save)
-  db.saveProfile({ user_id: obj.uid || (obj.em+'_'+Date.now()), first_name: obj.fn||'', last_name: obj.ln||'', email: obj.em, password: obj.pw||'' });
+  const userId = obj.uid || (obj.em + '_' + Date.now());
+  db.saveProfile({ user_id:userId, first_name:obj.fn||'', last_name:obj.ln||'', email:obj.em, password:obj.pw||'', photo:obj.ph||'' });
   if (obj.la) db.setSetting('lang', obj.la);
   if (obj.cu) db.setSetting('currency', obj.cu);
   if (obj.th) db.setSetting('theme', obj.th);
-  db.setSetting('initialized', '1');
+  db.setSetting('initialized','1');
+  // Ajouter/màj dans members
+  if (!db.getMemberByUserId(userId)) {
+    db.addMember({ user_id:userId, first_name:obj.fn||'', last_name:obj.ln||'', email:obj.em, password:obj.pw||'', photo:obj.ph||'', role:'manager' });
+  }
+  db.setCurrentUser(userId);
   showToast(`Bienvenue ${obj.fn||''}!`, 'success');
-  // Aller au dashboard sans rechargement (données déjà en mémoire)
-  hideOnboarding();
-  updateSettingsProfile();
-  updateHeaderDate();
-  renderDashboard();
-  loadSettings();
+  applyLoginAfterInit();
 }
 
-function handleJoinHousehold(inviteData) {
-  const profile = db.getProfile();
+// ─── Formulaire "Rejoindre le ménage" (après scan QR gestionnaire) ───
+function showJoinForm(inviteData) {
+  state.pendingJoinData = inviteData;
+  const managerName = inviteData.mn || 'le gestionnaire';
 
-  // Règle : un gestionnaire ne peut pas rejoindre un autre ménage
-  if (isCurrentUserManager()) {
-    showToast('Un gestionnaire ne peut pas rejoindre un autre ménage. Transférez vos droits d\'abord.', 'error');
-    return;
+  // Remplir les champs et afficher le formulaire
+  const modal = $('join-modal');
+  const infoEl = $('join-manager-info');
+  if (infoEl) infoEl.textContent = `Invité par : ${managerName}`;
+  $('join-first-name').value = '';
+  $('join-last-name').value = '';
+  $('join-password').value = '';
+  $('join-password2').value = '';
+  $('join-photo-preview').innerHTML = '<i class="fas fa-user" style="font-size:20px;color:var(--text-muted)"></i>';
+  $('join-photo-preview').dataset.photo = '';
+
+  if (modal) openModal('join-modal');
+  else showToast('Impossible d\'afficher le formulaire','error');
+}
+
+function confirmJoin() {
+  const fn = $('join-first-name').value.trim();
+  const ln = $('join-last-name').value.trim();
+  const pw = $('join-password').value;
+  const pw2 = $('join-password2').value;
+  const photo = $('join-photo-preview')?.dataset.photo || '';
+
+  if (!fn) { showToast('Prénom requis','error'); return; }
+  if (!pw || pw.length < 4) { showToast('Mot de passe min. 4 caractères','error'); return; }
+  if (pw !== pw2) { showToast('Les mots de passe ne correspondent pas','error'); return; }
+
+  const inv = state.pendingJoinData;
+  if (!inv) { showToast('Données d\'invitation perdues','error'); return; }
+
+  // Un seul gestionnaire : le gestionnaire invitant
+  const mgr = db.getManagerMember();
+  if (mgr && mgr.user_id !== (inv.uid||inv.mid)) {
+    showToast('Ce ménage a déjà un gestionnaire différent','error'); return;
   }
 
-  // Règle : le ménage ne peut avoir qu'un seul gestionnaire
-  const existingManagers = db.getMembers().filter(m => m.role === 'manager');
-  if (existingManagers.length >= 1) {
-    // Vérifier que le gestionnaire invitant correspond bien à celui déjà enregistré
-    const alreadyKnown = existingManagers.find(m => m.user_id === inviteData.uid || m.user_id === inviteData.mid);
-    if (!alreadyKnown) {
-      showToast('Ce ménage a déjà un gestionnaire. Deux gestionnaires ne peuvent pas cohabiter.', 'error');
-      return;
+  // Enregistrer le gestionnaire invitant s'il n'existe pas
+  const mgrUserId = inv.uid || inv.mid;
+  if (mgrUserId && !db.getMemberByUserId(mgrUserId)) {
+    const parts = (inv.mn||'').split(' ');
+    db.addMember({ user_id:mgrUserId, first_name:parts[0]||'Gestionnaire', last_name:parts.slice(1).join(' '), email:inv.me||'', role:'manager' });
+    // Si la DB est vide, créer aussi le profil
+    const p = db.getProfile();
+    if (!p.user_id || p.user_id === '') {
+      db.saveProfile({ user_id:mgrUserId, first_name:parts[0]||'Gestionnaire', last_name:parts.slice(1).join(' '), email:inv.me||'' });
     }
   }
 
-  // Ajouter le gestionnaire invitant s'il n'est pas encore enregistré
-  const existMgr = db.getMemberByUserId(inviteData.uid || inviteData.mid);
-  if (!existMgr) {
-    db.addMember({
-      user_id: inviteData.uid || inviteData.mid,
-      first_name: (inviteData.mn||'Gestionnaire').split(' ')[0],
-      last_name: (inviteData.mn||'').split(' ').slice(1).join(' '),
-      email: inviteData.me||'',
-      role: 'manager'
-    });
-  }
+  // Créer le membre
+  const userId = (typeof crypto!=='undefined'&&crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36);
+  db.addMember({ user_id:userId, first_name:fn, last_name:ln, email:'', password:pw, photo, role:'member' });
+  db.setSetting('initialized','1');
+  db.setCurrentUser(userId);
 
-  // S'ajouter comme membre
-  if (profile.user_id && !db.getMemberByUserId(profile.user_id)) {
-    db.addMember({
-      user_id: profile.user_id,
-      first_name: profile.first_name,
-      last_name: profile.last_name,
-      email: profile.email,
-      photo: profile.photo,
-      role: 'member'
-    });
-    showToast(`Vous avez rejoint le ménage de ${inviteData.mn||'ce gestionnaire'}!`, 'success');
-  } else {
-    showToast('Vous êtes déjà dans ce ménage','info');
-  }
-  openMembersModal();
+  state.pendingJoinData = null;
+  closeModal('join-modal');
+  showToast(`Bienvenue ${fn} ! Vous avez rejoint le ménage.`,'success');
+  sendPushNotification('Ménage rejoint', `${fn} a rejoint le ménage de ${inv.mn||'le gestionnaire'}.`);
+  applyLoginAfterInit();
 }
 
 // ─── Modals ───
 const modalStack = [];
-
 function openModal(id) {
-  const el = $(id);
-  if (!el) return;
-  el.style.display = 'flex';
-  el.classList.add('show');
+  const el = $(id); if (!el) return;
+  el.style.display = 'flex'; el.classList.add('show');
   if (!modalStack.includes(id)) modalStack.push(id);
   history.pushState(null, '', location.pathname);
 }
-
 function closeModal(id) {
-  const el = $(id);
-  if (!el) return;
-  el.style.display = 'none';
-  el.classList.remove('show');
+  const el = $(id); if (!el) return;
+  el.style.display = 'none'; el.classList.remove('show');
   const idx = modalStack.lastIndexOf(id);
   if (idx >= 0) modalStack.splice(idx, 1);
   if (id === 'camera-qr-modal') stopCamera();
 }
-
 function closeTopModal() {
   if (!modalStack.length) return false;
-  closeModal(modalStack[modalStack.length-1]);
-  return true;
+  closeModal(modalStack[modalStack.length-1]); return true;
 }
-
 window.addEventListener('popstate', e => {
   e.preventDefault();
   if (closeTopModal()) { history.pushState(null,'',location.pathname); return; }
@@ -614,26 +475,17 @@ function applyTheme(theme) {
 
 // ─── Vues ───
 function showDashboard() {
-  state.currentView = 'dashboard';
-  state.currentBudgetId = null;
-  renderDashboard();
-  history.pushState(null,'',location.pathname);
+  state.currentView = 'dashboard'; state.currentBudgetId = null;
+  renderDashboard(); history.pushState(null,'',location.pathname);
 }
-
 function showBudgetsView() {
-  state.currentView = 'budgets';
-  state.currentBudgetId = null;
-  renderBudgets();
-  history.pushState(null,'',location.pathname);
+  state.currentView = 'budgets'; state.currentBudgetId = null;
+  renderBudgets(); history.pushState(null,'',location.pathname);
 }
-
 function showBudgetDetail(budgetId) {
-  state.currentView = 'budget-detail';
-  state.currentBudgetId = budgetId;
-  renderBudgetDetail(budgetId);
-  history.pushState(null,'',location.pathname);
+  state.currentView = 'budget-detail'; state.currentBudgetId = budgetId;
+  renderBudgetDetail(budgetId); history.pushState(null,'',location.pathname);
 }
-
 function goBack() {
   if (!closeTopModal()) {
     if (state.currentView==='budget-detail') showBudgetsView();
@@ -650,6 +502,28 @@ function updateHeaderDate() {
   if (dEl) dEl.textContent = pad(d.getDate());
 }
 
+// ─── Indicateur de sync ───
+function updateSyncIndicator() {
+  const dot = $('sync-dot'), text = $('sync-text');
+  const online = navigator.onLine;
+  if (dot) {
+    if (!online) dot.className = 'sync-dot offline';
+    else if (db._uploading || db._syncPending) dot.className = 'sync-dot syncing';
+    else if (db._pollTimer) dot.className = 'sync-dot realtime';
+    else dot.className = 'sync-dot';
+  }
+  if (text) {
+    if (!online) text.textContent = 'Hors-ligne';
+    else if (db._uploading) text.textContent = 'Synchronisation…';
+    else if (db._syncPending) text.textContent = 'En attente…';
+    else if (db._pollTimer) text.textContent = 'En ligne ●';
+    else text.textContent = 'Synchronisé';
+  }
+}
+window.addEventListener('online',  updateSyncIndicator);
+window.addEventListener('offline', updateSyncIndicator);
+window._onSyncStateChange = updateSyncIndicator;
+
 // ─── Dashboard ───
 function renderDashboard() {
   const content = $('main-content');
@@ -658,9 +532,7 @@ function renderDashboard() {
   const memberCount = db.getMemberCount();
 
   let personalSpent = 0;
-  if (memberCount > 0) {
-    db.getBudgets().forEach(b => { personalSpent += db.getTotalSpentByBudget(b.id) / memberCount; });
-  }
+  if (memberCount > 0) db.getBudgets().forEach(b => { personalSpent += db.getTotalSpentByBudget(b.id) / memberCount; });
 
   let html = `<div class="dashboard-view">
     <div class="viewing-date-banner">
@@ -671,10 +543,7 @@ function renderDashboard() {
   if (memberCount > 0) {
     html += `<div class="personal-spent-card">
       <div class="icon"><i class="fas fa-user-circle"></i></div>
-      <div class="info">
-        <div class="label">Ma contribution totale</div>
-        <div class="amount">${fmt(personalSpent)}</div>
-      </div>
+      <div class="info"><div class="label">Ma contribution totale</div><div class="amount">${fmt(personalSpent)}</div></div>
     </div>`;
   }
 
@@ -707,8 +576,7 @@ function renderDashboard() {
     </div>`;
 
     if (exhaustedCount > 0) {
-      html += `<div class="warning-banner">
-        <i class="fas fa-exclamation-triangle"></i>
+      html += `<div class="warning-banner"><i class="fas fa-exclamation-triangle"></i>
         <div><div class="warning-banner-title">${exhaustedCount} achat(s) épuisé(s) tôt!</div><div>Vérifiez vos budgets</div></div>
       </div>`;
     }
@@ -721,7 +589,6 @@ function renderDashboard() {
     html += `<div class="section-title"><span>Budgets Actifs</span><span style="font-size:13px;color:var(--text-muted)">${budgets.length}</span></div>`;
     budgets.forEach(b => { html += renderBudgetCard(b); });
   }
-
   html += `</div><button class="fab" onclick="openCreateBudgetModal()"><i class="fas fa-plus"></i></button>`;
   content.innerHTML = html;
 }
@@ -762,7 +629,6 @@ function renderBudgetCard(b) {
   </div>`;
 }
 
-// ─── Budgets List ───
 function renderBudgets() {
   const content = $('main-content');
   const budgets = db.getBudgets();
@@ -770,9 +636,7 @@ function renderBudgets() {
     <div class="section-title"><span>Tous les Budgets</span><span style="font-size:13px;color:var(--text-muted)">${budgets.length}</span></div>`;
   if (budgets.length === 0) {
     html += `<div class="empty-state"><div class="empty-state-icon"><i class="fas fa-folder-open"></i></div><div style="font-weight:700">Aucun budget créé</div><div style="font-size:13px">Appuyez + pour commencer</div></div>`;
-  } else {
-    budgets.forEach(b => { html += renderBudgetCard(b); });
-  }
+  } else budgets.forEach(b => { html += renderBudgetCard(b); });
   html += `</div><button class="fab" onclick="openCreateBudgetModal()"><i class="fas fa-plus"></i></button>`;
   content.innerHTML = html;
 }
@@ -780,8 +644,7 @@ function renderBudgets() {
 // ─── Budget Detail ───
 function renderBudgetDetail(budgetId) {
   const content = $('main-content');
-  const b = db.getBudget(budgetId);
-  if (!b) { showDashboard(); return; }
+  const b = db.getBudget(budgetId); if (!b) { showDashboard(); return; }
   const start=new Date(b.start_date), end=new Date(b.end_date), now=new Date();
   const totalDays = Math.max(1, Math.ceil((end-start)/86400000)+1);
   const elapsed = Math.max(0, Math.ceil((now-start)/86400000));
@@ -797,16 +660,14 @@ function renderBudgetDetail(budgetId) {
   const DUR = { day:'Jour(s)', week:'Semaine(s)', month:'Mois', year:'Année(s)' };
 
   let html = `<div class="budget-detail-view">
-    <div class="back-btn-container">
-      <button class="back-btn" onclick="goBack()"><i class="fas fa-arrow-left"></i> Retour</button>
-    </div>
+    <div class="back-btn-container"><button class="back-btn" onclick="goBack()"><i class="fas fa-arrow-left"></i> Retour</button></div>
     <div class="budget-detail-header-card">
       <div class="budget-detail-title-row">
         <span class="budget-detail-title">${escHtml(b.name)}</span>
         <div style="display:flex;gap:8px;align-items:center">
           <span class="budget-duration-badge">${b.duration_value} ${DUR[b.duration_type]||b.duration_type}</span>
-          <button class="item-action-btn" onclick="openEditBudgetModal(${b.id})" title="Modifier"><i class="fas fa-pencil-alt"></i></button>
-          <button class="item-action-btn delete-btn" onclick="confirmDeleteBudget(${b.id})" title="Supprimer"><i class="fas fa-trash-alt"></i></button>
+          <button class="item-action-btn" onclick="openEditBudgetModal(${b.id})"><i class="fas fa-pencil-alt"></i></button>
+          <button class="item-action-btn delete-btn" onclick="confirmDeleteBudget(${b.id})"><i class="fas fa-trash-alt"></i></button>
         </div>
       </div>
       <div class="progress-container">
@@ -831,10 +692,8 @@ function renderBudgetDetail(budgetId) {
     </div></div>`;
   }
 
-  // Contributions membres
   html += renderMembersContributions(budgetId, totalSpent, memberCount, perMember);
 
-  // Achats
   html += `<div class="section-title">
     <span>Achats (${items.length})</span>
     <button class="backup-btn" style="width:auto;padding:6px 14px;font-size:13px;border-radius:20px" onclick="openCreateItemModal(${b.id})">
@@ -843,16 +702,15 @@ function renderBudgetDetail(budgetId) {
   </div>`;
 
   if (items.length === 0) {
-    html += `<div class="empty-state"><div class="empty-state-icon"><i class="fas fa-empty-alt"></i></div><div style="font-weight:700">Aucun achat ajouté</div></div>`;
+    html += `<div class="empty-state"><div class="empty-state-icon"><i class="fas fa-shopping-basket"></i></div><div style="font-weight:700">Aucun achat ajouté</div></div>`;
   } else {
     html += `<div class="food-items-container">`;
     items.forEach(item => { html += renderItemCard(item, budgetId); });
     html += `</div>`;
   }
 
-  // Récapitulatif
   html += `<div class="budget-members-section" style="margin-top:20px">
-    <h3><i class="fas fa-calculator"></i> Récapitulatif Budget</h3>
+    <h3><i class="fas fa-calculator"></i> Récapitulatif</h3>
     <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-color)">
       <span style="font-weight:600">Total Budgétisé</span><span>${fmt(totalBudgeted)}</span>
     </div>
@@ -874,9 +732,7 @@ function renderMembersContributions(budgetId, totalSpent, memberCount, perMember
   const statuses = db.getPaymentStatuses(budgetId);
   const isMgr = isCurrentUserManager();
   if (statuses.length === 0) return '';
-
-  let html = `<div class="budget-members-section">
-    <h3><i class="fas fa-users"></i> Contributions des Membres</h3>`;
+  let html = `<div class="budget-members-section"><h3><i class="fas fa-users"></i> Contributions des Membres</h3>`;
   statuses.forEach(s => {
     const name = `${escHtml(s.first_name||'')} ${escHtml(s.last_name||'')}`.trim() || 'Membre';
     const paid = s.is_paid == 1;
@@ -889,8 +745,7 @@ function renderMembersContributions(budgetId, totalSpent, memberCount, perMember
       }
     </div>`;
   });
-  html += `</div>`;
-  return html;
+  return html + `</div>`;
 }
 
 function togglePayment(budgetId, memberId, newState) {
@@ -899,11 +754,13 @@ function togglePayment(budgetId, memberId, newState) {
 }
 
 function isCurrentUserManager() {
-  const profile = db.getProfile();
-  if (!profile || !profile.user_id) return false;
-  const member = db.getMemberByUserId(profile.user_id);
-  if (!member) return false;
-  return member.role === 'manager';
+  const u = db.getCurrentUser();
+  if (u) return u.role === 'manager';
+  // Fallback : si profile est gestionnaire
+  const p = db.getProfile();
+  if (!p.user_id) return true;
+  const m = db.getMemberByUserId(p.user_id);
+  return !m || m.role === 'manager';
 }
 
 // ─── Item Card ───
@@ -921,9 +778,7 @@ function renderItemCard(item, budgetId) {
       </div>
     </div>
     <div class="progress-container">
-      <div class="progress-label-row">
-        <span>Dépensé: ${fmt(spent)}</span><span>Budget: ${fmt(item.budgeted_amount)}</span>
-      </div>
+      <div class="progress-label-row"><span>Dépensé: ${fmt(spent)}</span><span>Budget: ${fmt(item.budgeted_amount)}</span></div>
       <div class="progress-track"><div class="progress-fill ${pct>90?'danger':'success'}" style="width:${pct}%"></div></div>
     </div>
     ${item.is_finished
@@ -945,23 +800,18 @@ function openCreateBudgetModal() {
   state.editBudgetId = null;
   $('budget-modal-title').textContent = 'Créer un Budget';
   $('save-budget-btn').textContent = 'Créer le Budget';
-  $('budget-name').value = '';
-  $('budget-start-date').value = today();
-  $('budget-duration-type').value = 'month';
-  $('budget-duration-val').value = '1';
+  $('budget-name').value = ''; $('budget-start-date').value = today();
+  $('budget-duration-type').value = 'month'; $('budget-duration-val').value = '1';
   openModal('budget-modal');
 }
 
 function openEditBudgetModal(id) {
-  const b = db.getBudget(id);
-  if (!b) return;
+  const b = db.getBudget(id); if (!b) return;
   state.editBudgetId = id;
   $('budget-modal-title').textContent = 'Modifier le Budget';
   $('save-budget-btn').textContent = 'Mettre à jour';
-  $('budget-name').value = b.name;
-  $('budget-start-date').value = b.start_date;
-  $('budget-duration-type').value = b.duration_type;
-  $('budget-duration-val').value = b.duration_value;
+  $('budget-name').value = b.name; $('budget-start-date').value = b.start_date;
+  $('budget-duration-type').value = b.duration_type; $('budget-duration-val').value = b.duration_value;
   openModal('budget-modal');
 }
 
@@ -977,38 +827,29 @@ function saveBudget() {
   if (state.editBudgetId) {
     db.updateBudget(state.editBudgetId, data);
     showToast('Budget mis à jour!','success');
-    closeModal('budget-modal');
-    renderBudgetDetail(state.editBudgetId);
+    closeModal('budget-modal'); renderBudgetDetail(state.editBudgetId);
   } else {
     const newId = db.createBudget(data);
     db.initPaymentStatusesForBudget(newId);
     showToast('Budget créé!','success');
-    closeModal('budget-modal');
-    // Retour au dashboard et affichage immédiat du nouveau budget
-    showDashboard();
+    closeModal('budget-modal'); showDashboard();
+    sendPushNotification('Nouveau budget', `"${name}" créé avec succès.`);
   }
 }
 
 function confirmDeleteBudget(id) {
-  const b = db.getBudget(id);
-  if (!b) return;
+  const b = db.getBudget(id); if (!b) return;
   if (confirm(`Supprimer "${b.name}" et tout son contenu?`)) {
-    db.deleteBudget(id);
-    playSound('delete');
-    showToast('Budget supprimé','info');
-    showDashboard();
+    db.deleteBudget(id); showToast('Budget supprimé','info'); showDashboard();
   }
 }
 
 // ─── Item Modals ───
 function openCreateItemModal(budgetId) {
-  state.currentBudgetId = budgetId;
-  state.currentItemId = null;
-  $('item-name').value = '';
-  $('item-budgeted').value = '';
+  state.currentBudgetId = budgetId; state.currentItemId = null;
+  $('item-name').value = ''; $('item-budgeted').value = '';
   $('item-advisor-tip').classList.add('hidden');
-  renderItemSuggestions('');
-  openModal('item-modal');
+  renderItemSuggestions(''); openModal('item-modal');
 }
 
 function renderItemSuggestions(filter) {
@@ -1019,8 +860,7 @@ function renderItemSuggestions(filter) {
 }
 
 function selectItemSuggestion(name) {
-  $('item-name').value = name;
-  checkItemAdvisor(name);
+  $('item-name').value = name; checkItemAdvisor(name);
 }
 
 function checkItemAdvisor(name) {
@@ -1029,7 +869,7 @@ function checkItemAdvisor(name) {
   if (prev.length > 0) {
     const suggested = Math.ceil((prev[0].spent||0) * 1.1);
     const tip = $('item-advisor-tip');
-    tip.innerHTML = `<i class="fas fa-lightbulb"></i> Conseil: "${escHtml(name)}" s'est épuisé lors du dernier budget. Suggestion: ${fmt(suggested)}`;
+    tip.innerHTML = `<i class="fas fa-lightbulb"></i> Conseil: "${escHtml(name)}" s'est épuisé. Suggestion: ${fmt(suggested)}`;
     tip.classList.remove('hidden');
     if (!$('item-budgeted').value) $('item-budgeted').value = suggested;
   } else {
@@ -1044,18 +884,14 @@ function saveItem() {
   db.createItem({ budget_id:state.currentBudgetId, name, budgeted_amount:budgeted });
   db.addSuggestion(name);
   showToast('Achat ajouté!','success');
-  closeModal('item-modal');
-  renderBudgetDetail(state.currentBudgetId);
+  closeModal('item-modal'); renderBudgetDetail(state.currentBudgetId);
 }
 
 function confirmDeleteItem(id) {
-  const item = db.getItem(id);
-  if (!item) return;
+  const item = db.getItem(id); if (!item) return;
   if (confirm(`Supprimer "${item.name}" et tous ses achats?`)) {
     const budgetId = item.budget_id;
-    db.deleteItem(id);
-    playSound('delete');
-    showToast('Achat supprimé','info');
+    db.deleteItem(id); showToast('Achat supprimé','info');
     renderBudgetDetail(budgetId);
   }
 }
@@ -1063,18 +899,14 @@ function confirmDeleteItem(id) {
 // ─── Purchase Modals ───
 function openCreatePurchaseModal(itemId) {
   state.currentItemId = itemId;
-  $('purchase-date').value = today();
-  $('purchase-amount').value = '';
-  $('purchase-qty').value = '';
-  $('purchase-note').value = '';
+  $('purchase-date').value = today(); $('purchase-amount').value = '';
+  $('purchase-qty').value = ''; $('purchase-note').value = '';
   openModal('purchase-modal');
 }
 
 function savePurchase() {
-  const date = $('purchase-date').value;
-  const amount = parseFloat($('purchase-amount').value)||0;
-  const qty = $('purchase-qty').value.trim();
-  const note = $('purchase-note').value.trim();
+  const date = $('purchase-date').value, amount = parseFloat($('purchase-amount').value)||0;
+  const qty = $('purchase-qty').value.trim(), note = $('purchase-note').value.trim();
   if (!date) { showToast('Date requise','error'); return; }
   if (amount <= 0) { showToast('Montant invalide','error'); return; }
   db.createPurchase({ item_id:state.currentItemId, date, amount, qty, note });
@@ -1107,26 +939,20 @@ function openPurchasesListModal(itemId) {
 
 function deletePurchaseFromList(purchaseId, itemId) {
   if (confirm('Supprimer cet achat?')) {
-    db.deletePurchase(purchaseId);
-    playSound('delete');
-    openPurchasesListModal(itemId);
+    db.deletePurchase(purchaseId); openPurchasesListModal(itemId);
     if (state.currentBudgetId) renderBudgetDetail(state.currentBudgetId);
   }
 }
 
-// ─── Refill Modal ───
 function openRefillModal(itemId) {
   state.currentItemId = itemId;
-  $('refill-amount').value = '';
-  $('refill-qty').value = '';
-  $('refill-note').value = 'Réappro.';
+  $('refill-amount').value = ''; $('refill-qty').value = ''; $('refill-note').value = 'Réappro.';
   openModal('refill-modal');
 }
 
 function saveRefill() {
   const amount = parseFloat($('refill-amount').value)||0;
-  const qty = $('refill-qty').value.trim();
-  const note = $('refill-note').value.trim();
+  const qty = $('refill-qty').value.trim(), note = $('refill-note').value.trim();
   if (amount <= 0) { showToast('Montant invalide','error'); return; }
   db.createPurchase({ item_id:state.currentItemId, date:today(), amount, qty, note:note||'Réappro.' });
   const item = db.getItem(state.currentItemId);
@@ -1160,8 +986,7 @@ function pressCalc(key) {
 
 function openCalculatorForField(fieldId) {
   state.calcTarget = fieldId;
-  const calc = $('calculator-modal');
-  calc.style.display = 'flex';
+  $('calculator-modal').style.display = 'flex';
 }
 
 function insertCalcValue() {
@@ -1170,9 +995,7 @@ function insertCalcValue() {
   if (state.calcTarget) {
     const field = $(state.calcTarget);
     if (field) { field.value = val; field.dispatchEvent(new Event('input')); }
-    const calc = $('calculator-modal');
-    calc.style.display = 'none';
-    state.calcTarget = null;
+    $('calculator-modal').style.display = 'none'; state.calcTarget = null;
   } else {
     navigator.clipboard?.writeText(val.toString())
       .then(()=>showToast('Montant copié: '+val,'success'))
@@ -1184,11 +1007,10 @@ function initCalculatorDrag() {
   const modal = $('calculator-modal'), header = $('calculator-drag-header');
   if (!modal || !header) return;
   let isDragging=false, startX, startY, startLeft, startTop;
-  const drag = (clientX, clientY) => {
+  const drag = (cx, cy) => {
     if (!isDragging) return;
-    modal.style.left = (startLeft + clientX - startX)+'px';
-    modal.style.top = (startTop + clientY - startY)+'px';
-    modal.style.right = 'auto'; modal.style.transform = 'none';
+    modal.style.left = (startLeft+cx-startX)+'px'; modal.style.top = (startTop+cy-startY)+'px';
+    modal.style.right='auto'; modal.style.transform='none';
   };
   header.addEventListener('mousedown', e => {
     isDragging=true; startX=e.clientX; startY=e.clientY;
@@ -1199,70 +1021,42 @@ function initCalculatorDrag() {
   header.addEventListener('touchstart', e => {
     isDragging=true; const t=e.touches[0]; startX=t.clientX; startY=t.clientY;
     const r=modal.getBoundingClientRect(); startLeft=r.left; startTop=r.top;
-  }, {passive:true});
-  document.addEventListener('touchmove', e => { if(isDragging){const t=e.touches[0];drag(t.clientX,t.clientY);} }, {passive:true});
+  },{passive:true});
+  document.addEventListener('touchmove', e=>{ if(isDragging){const t=e.touches[0];drag(t.clientX,t.clientY);} },{passive:true});
   document.addEventListener('touchend', ()=>{ isDragging=false; });
 }
 
 // ─── Date Sélecteur ───
-function openSelectionModal() {
-  populateSelectionGrids();
-  openModal('selection-modal');
-}
+function openSelectionModal() { populateSelectionGrids(); openModal('selection-modal'); }
 
 function populateSelectionGrids() {
-  const d = state.currentDate;
-  const currentYear = new Date().getFullYear();
+  const d = state.currentDate, currentYear = new Date().getFullYear();
 
-  const yearGrid = $('year-grid');
-  yearGrid.innerHTML = '';
+  const yearGrid = $('year-grid'); yearGrid.innerHTML = '';
   for (let y=currentYear-3; y<=currentYear+2; y++) {
     const el = document.createElement('div');
     el.className = 'year-item' + (y===d.getFullYear()?' selected':'');
     el.textContent = y;
-    el.onclick = () => {
-      state.currentDate.setFullYear(y);
-      updateHeaderDate();
-      populateSelectionGrids();
-      if (state.currentView==='dashboard') renderDashboard();
-      // Auto-avancer vers les mois
-      switchSelectionTab('months');
-    };
+    el.onclick = () => { state.currentDate.setFullYear(y); updateHeaderDate(); populateSelectionGrids(); if(state.currentView==='dashboard') renderDashboard(); switchSelectionTab('months'); };
     yearGrid.appendChild(el);
   }
 
-  const monthGrid = $('month-grid');
-  monthGrid.innerHTML = '';
+  const monthGrid = $('month-grid'); monthGrid.innerHTML = '';
   MONTHS_FR.forEach((m, i) => {
     const el = document.createElement('div');
     el.className = 'month-item' + (i===d.getMonth()?' selected':'');
     el.textContent = m;
-    el.onclick = () => {
-      state.currentDate.setMonth(i);
-      updateHeaderDate();
-      populateSelectionGrids();
-      if (state.currentView==='dashboard') renderDashboard();
-      // Auto-avancer vers les jours
-      switchSelectionTab('days');
-    };
+    el.onclick = () => { state.currentDate.setMonth(i); updateHeaderDate(); populateSelectionGrids(); if(state.currentView==='dashboard') renderDashboard(); switchSelectionTab('days'); };
     monthGrid.appendChild(el);
   });
 
   const daysInMonth = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
-  const dayGrid = $('day-grid');
-  dayGrid.innerHTML = '';
+  const dayGrid = $('day-grid'); dayGrid.innerHTML = '';
   for (let day=1; day<=daysInMonth; day++) {
     const el = document.createElement('div');
     el.className = 'day-item' + (day===d.getDate()?' selected':'');
     el.textContent = day;
-    el.onclick = () => {
-      state.currentDate.setDate(day);
-      updateHeaderDate();
-      populateSelectionGrids();
-      if (state.currentView==='dashboard') renderDashboard();
-      // Fermer le modal après sélection du jour
-      closeModal('selection-modal');
-    };
+    el.onclick = () => { state.currentDate.setDate(day); updateHeaderDate(); populateSelectionGrids(); if(state.currentView==='dashboard') renderDashboard(); closeModal('selection-modal'); };
     dayGrid.appendChild(el);
   }
 }
@@ -1273,8 +1067,7 @@ function switchSelectionTab(tabName) {
   const tab = document.querySelector(`#selection-modal .tab[data-tab="${tabName}"]`);
   if (tab) tab.classList.add('active');
   const map = { years:'year-grid-container', months:'month-grid-container', days:'day-grid-container' };
-  const container = $(map[tabName]);
-  if (container) container.classList.add('active-content');
+  const container = $(map[tabName]); if (container) container.classList.add('active-content');
 }
 
 // ─── Recherche ───
@@ -1294,7 +1087,7 @@ function performSearch(query) {
   }
   container.innerHTML = results.map(r => `
     <div class="search-result-item" onclick="handleSearchResult('${r.type}',${r.id},${r.budgetId||0})">
-      <div class="result-ref"><i class="fas fa-${r.type==='budget'?'folder':'empty-alt'}"></i> ${escHtml(r.ref)}</div>
+      <div class="result-ref"><i class="fas fa-${r.type==='budget'?'folder':'shopping-basket'}"></i> ${escHtml(r.ref)}</div>
       <div class="result-text">${escHtml(r.text)}</div>
     </div>`).join('');
 }
@@ -1315,48 +1108,44 @@ function loadSettings() {
   const lSel = $('lang-select'); if(lSel) lSel.value = db.getSetting('lang','fr');
   const cSel = $('currency-select'); if(cSel) cSel.value = currency;
   const snd = $('sound-toggle'); if(snd) snd.checked = db.getSetting('sound','1')==='1';
-  
-  const notify = $('notification-toggle');
-  if (notify) {
-    notify.checked = db.getSetting('notifications', '0') === '1' && Notification.permission === 'granted';
-  }
+  const pn = $('push-toggle'); if(pn) pn.checked = db.getSetting('push_notif','1')==='1';
 }
 
 function updateSettingsProfile() {
-  const p = db.getProfile();
-  const fullName = `${p.first_name} ${p.last_name}`.trim() || 'Utilisateur';
+  const u = db.getCurrentUser() || db.getProfile();
+  if (!u) return;
+  const fullName = `${u.first_name||''} ${u.last_name||''}`.trim() || 'Utilisateur';
   const nameEl = $('settings-profile-name'); if(nameEl) nameEl.textContent = fullName;
-  const emailEl = $('settings-profile-email'); if(emailEl) emailEl.textContent = p.email||'';
-  if (p.photo) {
+  const emailEl = $('settings-profile-email'); if(emailEl) emailEl.textContent = u.email||'';
+  const photo = u.photo || '';
+  if (photo) {
     const img = $('settings-profile-pic'), fb = $('settings-profile-pic-fallback');
-    if(img){img.src=p.photo;img.style.display=''}
-    if(fb) fb.style.display='none';
+    if(img){img.src=photo;img.style.display=''} if(fb) fb.style.display='none';
   }
   const dName = $('drawer-profile-name'); if(dName) dName.textContent = fullName;
-  const dEmail = $('drawer-profile-email'); if(dEmail) dEmail.textContent = p.email||'';
-  if (p.photo) {
+  const dEmail = $('drawer-profile-email'); if(dEmail) dEmail.textContent = u.email||'';
+  if (photo) {
     const da = $('drawer-avatar'), df = $('drawer-avatar-fallback');
-    if(da){da.src=p.photo;da.style.display=''}
-    if(df) df.style.display='none';
+    if(da){da.src=photo;da.style.display=''} if(df) df.style.display='none';
   }
   const badge = $('drawer-role-badge');
   if (badge) {
-    const member = db.getMemberByUserId(p.user_id);
+    const member = db.getCurrentUser() || db.getMemberByUserId((db.getProfile()||{}).user_id);
     badge.style.display = (member && member.role==='manager') ? 'inline-block' : 'none';
   }
 }
 
 // ─── Membres Modal ───
 function openMembersModal() {
-  renderMembersList();
-  checkPrivilegeTransfer();
-  openModal('members-modal');
+  renderMembersList(); checkPrivilegeTransfer(); openModal('members-modal');
 }
 
 function renderMembersList() {
   const members = db.getMembers();
   const list = $('members-list'), count = $('members-count');
   if (count) count.textContent = members.length;
+  const isMgr = isCurrentUserManager();
+
   if (members.length === 0) {
     list.innerHTML = '<div class="empty-state" style="padding:20px"><i class="fas fa-users" style="font-size:24px;color:var(--text-muted)"></i><div style="font-size:13px">Aucun membre dans le ménage</div></div>';
   } else {
@@ -1372,30 +1161,14 @@ function renderMembersList() {
           <div class="member-email">${escHtml(m.email||'')}</div>
         </div>
         <span class="member-role ${m.role==='manager'?'manager':'member'}">${m.role==='manager'?'👑 Gérant':'Membre'}</span>
-        ${isCurrentUserManager()&&m.role!=='manager'?`<button class="item-action-btn delete-btn" style="width:28px;height:28px;font-size:11px;flex-shrink:0" onclick="removeMember(${m.id})" title="Retirer"><i class="fas fa-user-minus"></i></button>`:''}
+        ${isMgr&&m.role!=='manager'?`<button class="item-action-btn delete-btn" style="width:28px;height:28px;font-size:11px;flex-shrink:0" onclick="removeMember(${m.id})"><i class="fas fa-user-minus"></i></button>`:''}
       </div>`;
     }).join('');
   }
 
-  // Section invitation gérant vs membre
-  const inviteSection = $('members-invite-section');
-  if (inviteSection) {
-    if (isCurrentUserManager()) {
-      inviteSection.style.display = 'block';
-      const scanBtn = inviteSection.querySelector('button[onclick*="startCameraQRScan"]');
-      if (scanBtn) {
-        scanBtn.setAttribute('onclick', "startCameraQRScan('add_member')");
-        scanBtn.innerHTML = '<i class="fas fa-camera"></i> Scanner le QR d\'un nouveau membre';
-      }
-    } else {
-      inviteSection.style.display = 'none';
-    }
-  }
-
-  // Section transfert
   const transferSection = $('privilege-transfer-section');
   if (transferSection) {
-    if (isCurrentUserManager() && members.length > 1) {
+    if (isMgr && members.length > 1) {
       transferSection.style.display = 'block';
       const sel = $('transfer-target-select');
       sel.innerHTML = '<option value="">-- Choisir un membre --</option>';
@@ -1409,18 +1182,15 @@ function renderMembersList() {
       transferSection.style.display = 'none';
     }
   }
+
+  // Afficher bouton "Inviter" seulement pour gestionnaire
+  const inviteSection = $('invite-section');
+  if (inviteSection) inviteSection.style.display = isMgr ? 'block' : 'none';
 }
 
 function removeMember(memberId) {
-  if (!isCurrentUserManager()) {
-    showToast('Seul le gérant peut retirer des membres du ménage.', 'error');
-    return;
-  }
   if (confirm('Retirer ce membre du ménage?')) {
-    db.deleteMember(memberId);
-    playSound('delete');
-    renderMembersList();
-    showToast('Membre retiré','info');
+    db.deleteMember(memberId); renderMembersList(); showToast('Membre retiré','info');
   }
 }
 
@@ -1434,42 +1204,33 @@ function checkPrivilegeTransfer() {
     approvalSection.style.display = 'block';
     const from = db.getMemberById(pending.from_member_id);
     const fromName = from ? `${from.first_name} ${from.last_name}`.trim() : 'Le gestionnaire';
-    $('transfer-approval-text').textContent = `${fromName} souhaite vous céder les privilèges de gestionnaire. Acceptez-vous?`;
+    $('transfer-approval-text').textContent = `${fromName} souhaite vous céder les privilèges. Acceptez-vous?`;
     $('approve-transfer-btn').onclick = () => {
       db.resolveTransferRequest(pending.id, true);
       renderMembersList(); approvalSection.style.display='none';
-      updateSettingsProfile();
-      showToast('Vous êtes maintenant gestionnaire!','success');
+      updateSettingsProfile(); showToast('Vous êtes maintenant gestionnaire!','success');
     };
     $('reject-transfer-btn').onclick = () => {
       db.resolveTransferRequest(pending.id, false);
-      approvalSection.style.display = 'none';
-      showToast('Demande refusée','info');
+      approvalSection.style.display='none'; showToast('Demande refusée','info');
     };
-  } else {
-    approvalSection.style.display = 'none';
-  }
+  } else { approvalSection.style.display = 'none'; }
 }
 
-// ─── Export .menap avec sélection de budgets ───
-let _importParsedData = null; // données parsées du fichier importé
+// ─── Export .menap ───
+let _importParsedData = null;
 
-function openBackupModal() {
-  openModal('backup-modal');
-  refreshExportBudgetList();
-}
+function openBackupModal() { openModal('backup-modal'); refreshExportBudgetList(); }
 
 function refreshExportBudgetList() {
-  const container = $('export-budget-list');
-  if (!container) return;
+  const container = $('export-budget-list'); if (!container) return;
   const budgets = db.getBudgets();
   if (budgets.length === 0) {
-    container.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:10px;text-align:center">Aucun budget disponible</div>';
-    return;
+    container.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:10px;text-align:center">Aucun budget disponible</div>'; return;
   }
   container.innerHTML = budgets.map(b => {
     const items = db.getItemsByBudget(b.id);
-    const total = items.reduce((s, i) => s + (i.budgeted_amount || 0), 0);
+    const total = items.reduce((s,i)=>s+(i.budgeted_amount||0), 0);
     return `<label class="budget-select-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--card-bg);border:1.5px solid var(--border-color);cursor:pointer">
       <input type="checkbox" class="export-budget-cb" data-id="${b.id}" checked style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary-color)">
       <div style="flex:1;min-width:0">
@@ -1489,13 +1250,9 @@ function exportMenap() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=`menap_backup_${today()}.menap`; a.click();
   URL.revokeObjectURL(url);
-  showToast(`${ids.length} budget(s) exporté(s)!`, 'success');
+  showToast(`${ids.length} budget(s) exporté(s)!`,'success');
 }
 
-// Alias pour compatibilité
-function exportDem() { exportMenap(); }
-
-// ─── Import .menap avec aperçu et sélection ───
 async function handleImportFile(file) {
   if (!file) return;
   const ext = file.name.split('.').pop().toLowerCase();
@@ -1507,47 +1264,33 @@ async function handleImportFile(file) {
     const qrData = await scanQRFromFile(file);
     if (qrData) handleQRScanned(qrData);
     else showToast('Aucun QR détecté dans cette image','error');
-  } else {
-    showToast('Format non reconnu (.menap ou image QR)','error');
-  }
+  } else { showToast('Format non reconnu (.menap ou image QR)','error'); }
 }
 
 function showImportPreview(content) {
   const data = db.parseMenapFile(content);
   if (!data) { showToast('Fichier .menap invalide ou corrompu','error'); return; }
   _importParsedData = { content, data };
-
-  const preview = $('import-preview');
-  const listEl  = $('import-budget-list');
+  const preview = $('import-preview'), listEl = $('import-budget-list');
   if (!preview || !listEl) return;
-
   const budgets = data.budgets || [];
   if (budgets.length === 0) {
     listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:10px;text-align:center">Aucun budget dans ce fichier</div>';
-    preview.style.display = 'block';
-    return;
+    preview.style.display = 'block'; return;
   }
-
   listEl.innerHTML = budgets.map((b, i) => {
     const items = b.items || [];
-    const total = items.reduce((s, it) => s + (it.budgeted_amount || 0), 0);
-    const purchases = items.reduce((s, it) => s + (it.purchases ? it.purchases.length : 0), 0);
-    // Vérifier si ce budget existe déjà localement
-    const isDuplicate = db.getBudgets().some(
-      existing => existing.name === b.name && existing.start_date === b.start_date && existing.end_date === b.end_date
-    );
-    return `<label class="budget-select-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--card-bg);border:1.5px solid ${isDuplicate ? 'var(--danger-color)' : 'var(--border-color)'};cursor:pointer;opacity:${isDuplicate ? '0.65' : '1'}">
-      <input type="checkbox" class="import-budget-cb" data-index="${i}" ${isDuplicate ? '' : 'checked'} style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary-color)">
+    const total = items.reduce((s,it)=>s+(it.budgeted_amount||0), 0);
+    const isDup = db.getBudgets().some(e=>e.name===b.name&&e.start_date===b.start_date&&e.end_date===b.end_date);
+    return `<label class="budget-select-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--card-bg);border:1.5px solid ${isDup?'var(--danger-color)':'var(--border-color)'};cursor:pointer;opacity:${isDup?'0.65':'1'}">
+      <input type="checkbox" class="import-budget-cb" data-index="${i}" ${isDup?'':'checked'} style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary-color)">
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}${isDuplicate ? ' <span style="font-size:10px;color:var(--danger-color);font-weight:600">⚠ Déjà existant</span>' : ''}</div>
-        <div style="font-size:11px;color:var(--text-muted)">${b.start_date} → ${b.end_date}</div>
-        <div style="font-size:11px;color:var(--text-muted)">${items.length} article(s) · ${purchases} achat(s) · Budgété: ${fmt(total)}</div>
+        <div style="font-weight:700;font-size:13px">${b.name}${isDup?' <span style="font-size:10px;color:var(--danger-color)">⚠ Existant</span>':''}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${b.start_date} → ${b.end_date} · ${fmt(total)}</div>
       </div>
     </label>`;
   }).join('');
-
   preview.style.display = 'block';
-  showToast(`${budgets.length} budget(s) trouvé(s) dans le fichier`, 'info');
 }
 
 function confirmImport() {
@@ -1557,19 +1300,11 @@ function confirmImport() {
   const indices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
   const result = db.importFromMenap(_importParsedData.content, indices);
   if (result.ok) {
-    if (result.imported === 0 && result.skipped > 0) {
-      showToast(`Tous les budgets existent déjà (${result.skipped} ignoré(s))`, 'info');
-    } else if (result.skipped > 0) {
-      showToast(`${result.imported} importé(s), ${result.skipped} doublon(s) ignoré(s)`, 'success');
-    } else {
-      showToast(`${result.imported} budget(s) importé(s) avec succès!`, 'success');
-    }
-    _importParsedData = null;
-    $('import-preview').style.display = 'none';
-    setTimeout(() => { renderDashboard(); closeModal('backup-modal'); }, 900);
-  } else {
-    showToast('Erreur lors de l\'importation','error');
-  }
+    const msg = result.skipped > 0 ? `${result.imported} importé(s), ${result.skipped} doublon(s) ignoré(s)` : `${result.imported} budget(s) importé(s)!`;
+    showToast(msg, 'success');
+    _importParsedData = null; $('import-preview').style.display = 'none';
+    setTimeout(()=>{ renderDashboard(); closeModal('backup-modal'); }, 900);
+  } else { showToast('Erreur lors de l\'importation','error'); }
 }
 
 function exportSQLiteDB() {
@@ -1577,122 +1312,84 @@ function exportSQLiteDB() {
   const blob = new Blob([buf], { type:'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=`menap_${today()}.db`; a.click();
-  URL.revokeObjectURL(url);
-  showToast('Base SQLite exportée!','success');
-}
-
-// ─── Indicateur de synchronisation ───
-function updateSyncIndicator() {
-  const dot  = $('sync-dot');
-  const text = $('sync-text');
-  const online = navigator.onLine;
-  const polling = !!db._pollTimer;
-
-  if (dot) {
-    if (!online) {
-      dot.className = 'sync-dot offline';
-    } else if (db._uploading || db._syncPending) {
-      dot.className = 'sync-dot syncing';
-    } else if (polling) {
-      dot.className = 'sync-dot realtime';
-    } else {
-      dot.className = 'sync-dot';
-    }
-  }
-  if (text) {
-    if (!online)            text.textContent = 'Hors-ligne';
-    else if (db._uploading) text.textContent = 'Synchronisation…';
-    else if (db._syncPending) text.textContent = 'En attente…';
-    else if (polling)       text.textContent = 'En ligne ●';
-    else                    text.textContent = 'Synchronisé';
-  }
-}
-window.addEventListener('online',  updateSyncIndicator);
-window.addEventListener('offline', updateSyncIndicator);
-window._onSyncStateChange = updateSyncIndicator;
-
-// ─── Modification de profil ───
-function openEditProfile() {
-  const profile = db.getProfile();
-  if (!profile) return;
-  $('edit-profile-first-name').value  = profile.first_name || '';
-  $('edit-profile-last-name').value   = profile.last_name  || '';
-  $('edit-profile-email').value       = profile.email      || '';
-  $('edit-profile-old-pw').value      = '';
-  $('edit-profile-new-pw').value      = '';
-  $('edit-profile-new-pw2').value     = '';
-  const preview = $('edit-profile-pic-preview');
-  if (preview) {
-    preview.dataset.photo = '';
-    preview.innerHTML = profile.photo
-      ? `<img src="${profile.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-      : `<i class="fas fa-user" style="font-size:28px;color:var(--primary-color)"></i>`;
-  }
-  const section = $('edit-profile-section');
-  if (section) {
-    section.style.display = section.style.display === 'none' ? 'block' : 'none';
-  }
-}
-
-function saveEditProfile() {
-  const fn  = $('edit-profile-first-name').value.trim();
-  const ln  = $('edit-profile-last-name').value.trim();
-  const em  = $('edit-profile-email').value.trim();
-  const oldPw = $('edit-profile-old-pw').value;
-  const newPw = $('edit-profile-new-pw').value;
-  const newPw2 = $('edit-profile-new-pw2').value;
-  const photo = $('edit-profile-pic-preview')?.dataset.photo || undefined;
-
-  if (!fn) { showToast('Prénom requis','error'); return; }
-  if (newPw && newPw !== newPw2) { showToast('Les mots de passe ne correspondent pas','error'); return; }
-
-  try {
-    db.updateProfileFull({ first_name: fn, last_name: ln, email: em,
-      old_password: oldPw || undefined, new_password: newPw || undefined, photo });
-    showToast('Profil mis à jour!','success');
-    updateSettingsProfile();
-    const section = $('edit-profile-section');
-    if (section) section.style.display = 'none';
-  } catch(e) {
-    if (e.message === 'email_exists')    showToast('Cet email est déjà utilisé','error');
-    else if (e.message === 'wrong_password') showToast('Ancien mot de passe incorrect','error');
-    else if (e.message === 'password_short') showToast('Nouveau mot de passe trop court (min 4 caractères)','error');
-    else showToast('Erreur: ' + e.message,'error');
-  }
+  URL.revokeObjectURL(url); showToast('Base SQLite exportée!','success');
 }
 
 // ─── Partager ───
 function shareApp() {
   const url = window.location.origin + window.location.pathname;
-  if (navigator.share) {
-    navigator.share({ title:'Menap - Budget Achataire', text:'Gérez votre budget achataire familial!', url }).catch(()=>{});
-  } else {
-    navigator.clipboard?.writeText(url).then(()=>showToast('Lien copié!','success')).catch(()=>showToast('Partagez: '+url,'info'));
-  }
+  if (navigator.share) navigator.share({ title:'Menap', url }).catch(()=>{});
+  else navigator.clipboard?.writeText(url).then(()=>showToast('Lien copié!','success')).catch(()=>showToast('Partagez: '+url,'info'));
 }
 
 // ─── Onboarding ───
 function showOnboarding() {
   const screen = $('onboarding-screen');
   if (screen) screen.classList.remove('hidden');
-  // Si un profil existe déjà dans menap.db (chargé depuis le serveur),
-  // pré-remplir l'email et basculer sur l'onglet Connexion
-  const p = db.getProfile();
-  if (p && p.email) {
-    const emailField = $('login-email');
-    if (emailField) emailField.value = p.email;
-    const hint = $('login-profile-hint');
-    if (hint) {
-      hint.textContent = `Compte trouvé : ${p.first_name} ${p.last_name}`.trim();
-      hint.style.display = 'block';
-    }
-    $('tab-onboard-login')?.click();
+
+  const members = db.getMembers();
+  const hasMembers = members.length > 0;
+
+  if (hasMembers) {
+    // Afficher la liste des membres pour sélection
+    showMemberLoginList(members);
+    setOnboardTab('login');
+  } else {
+    // Aucun membre = première installation, afficher création gestionnaire
+    setOnboardTab('create');
   }
+}
+
+function showMemberLoginList(members) {
+  const container = $('member-login-list');
+  if (!container) return;
+
+  container.innerHTML = members.map(m => {
+    const initials = (m.first_name?.[0]||'') + (m.last_name?.[0]||'');
+    const name = `${m.first_name||''} ${m.last_name||''}`.trim() || 'Membre';
+    return `<div class="member-login-card" onclick="selectMemberLogin('${escAttr(m.user_id)}','${escAttr(name)}')" data-uid="${m.user_id}">
+      <div class="member-login-avatar">
+        ${m.photo ? `<img src="${escHtml(m.photo)}" alt="${escHtml(name)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : `<span style="font-size:16px;font-weight:700;color:var(--primary-color)">${initials||'👤'}</span>`}
+      </div>
+      <div class="member-login-name">${escHtml(name)}</div>
+      <div class="member-login-role">${m.role==='manager'?'👑 Gérant':'Membre'}</div>
+    </div>`;
+  }).join('');
+
+  const hint = $('login-profile-hint');
+  if (hint) { hint.textContent = `${members.length} compte(s) trouvé(s) sur ce ménage`; hint.style.display = 'block'; }
+}
+
+function selectMemberLogin(userId, name) {
+  // Mettre en surbrillance la carte sélectionnée
+  document.querySelectorAll('.member-login-card').forEach(c => c.classList.remove('selected'));
+  const card = document.querySelector(`.member-login-card[data-uid="${userId}"]`);
+  if (card) card.classList.add('selected');
+
+  // Remplir champ email caché avec userId et afficher la section mot de passe
+  const pwSection = $('member-pw-section');
+  const uidField = $('selected-member-uid');
+  const nameLabel = $('selected-member-name');
+  if (uidField) uidField.value = userId;
+  if (nameLabel) nameLabel.textContent = `Bonjour ${name} ! Entrez votre mot de passe`;
+  if (pwSection) pwSection.style.display = 'block';
+  $('member-login-password')?.focus();
 }
 
 function hideOnboarding() {
   const screen = $('onboarding-screen');
   if (screen) screen.classList.add('hidden');
+  // Cacher la section mot de passe
+  const pwSection = $('member-pw-section');
+  if (pwSection) pwSection.style.display = 'none';
+}
+
+function applyLoginAfterInit() {
+  hideOnboarding();
+  updateSettingsProfile();
+  updateHeaderDate();
+  renderDashboard();
+  loadSettings();
 }
 
 // ─── Bindings Event ───
@@ -1703,63 +1400,66 @@ function initEventListeners() {
   function closeDrawer() { $('drawer').classList.remove('open'); $('overlay').classList.remove('show'); }
 
   const navItems = {
-    'nav-dashboard': () => { closeDrawer(); showDashboard(); },
-    'nav-budgets': () => { closeDrawer(); showBudgetsView(); },
-    'nav-members': () => { closeDrawer(); openMembersModal(); },
-    'nav-search': () => { closeDrawer(); openModal('search-modal'); setTimeout(()=>$('search-input').focus(),200); },
-    'nav-backup': () => { closeDrawer(); openBackupModal(); },
-    'nav-share': () => { closeDrawer(); shareApp(); },
-    'nav-settings': () => { closeDrawer(); updateSettingsProfile(); openModal('settings-modal'); },
-    'nav-info': () => { closeDrawer(); openModal('contact-modal'); },
-    'nav-logout': () => { closeDrawer(); openModal('logout-modal'); }
+    'nav-dashboard': ()=>{ closeDrawer(); showDashboard(); },
+    'nav-budgets': ()=>{ closeDrawer(); showBudgetsView(); },
+    'nav-members': ()=>{ closeDrawer(); openMembersModal(); },
+    'nav-search': ()=>{ closeDrawer(); openModal('search-modal'); setTimeout(()=>$('search-input').focus(),200); },
+    'nav-backup': ()=>{ closeDrawer(); openBackupModal(); },
+    'nav-share': ()=>{ closeDrawer(); shareApp(); },
+    'nav-settings': ()=>{ closeDrawer(); updateSettingsProfile(); openModal('settings-modal'); },
+    'nav-info': ()=>{ closeDrawer(); openModal('contact-modal'); },
+    'nav-logout': ()=>{ closeDrawer(); openModal('logout-modal'); }
   };
   Object.entries(navItems).forEach(([id, fn]) => { const el=$(id); if(el) el.addEventListener('click',fn); });
 
-  // Header
   $('search-btn').addEventListener('click', ()=>{ openModal('search-modal'); setTimeout(()=>$('search-input').focus(),200); });
   $('header-calc-btn').addEventListener('click', ()=>{
-    const c = $('calculator-modal');
-    c.style.display = c.style.display==='flex' ? 'none' : 'flex';
+    const c=$('calculator-modal'); c.style.display = c.style.display==='flex' ? 'none' : 'flex';
   });
 
-  // Date selectors
   $('header-year-selector').addEventListener('click', ()=>{ openSelectionModal(); switchSelectionTab('years'); });
   $('header-month-selector').addEventListener('click', ()=>{ openSelectionModal(); switchSelectionTab('months'); });
   $('header-day-selector').addEventListener('click', ()=>{ openSelectionModal(); switchSelectionTab('days'); });
 
-  // Selection modal tabs
   document.querySelectorAll('#selection-modal .tab').forEach(tab => {
     tab.addEventListener('click', ()=>switchSelectionTab(tab.dataset.tab));
   });
   $('close-modal').addEventListener('click', ()=>closeModal('selection-modal'));
 
-  // Close buttons
   const closeMaps = {
     'close-search':'search-modal','close-settings':'settings-modal','close-contact':'contact-modal',
     'close-budget-modal':'budget-modal','close-item-modal':'item-modal','close-purchase-modal':'purchase-modal',
     'close-purchases-list-modal':'purchases-list-modal','close-refill-modal':'refill-modal',
     'close-logout-modal':'logout-modal','close-backup-modal':'backup-modal',
-    'close-members-modal':'members-modal','close-camera-qr':'camera-qr-modal'
+    'close-members-modal':'members-modal','close-camera-qr':'camera-qr-modal',
+    'close-join-modal':'join-modal'
   };
   Object.entries(closeMaps).forEach(([btnId, modalId]) => {
     const btn=$(btnId); if(!btn) return;
     btn.addEventListener('click', ()=>closeModal(modalId));
   });
+
   const calcClose = $('close-calculator-modal');
   if (calcClose) calcClose.addEventListener('click', ()=>{ $('calculator-modal').style.display='none'; });
-
   $('stop-camera-btn').addEventListener('click', ()=>{ stopCamera(); closeModal('camera-qr-modal'); });
 
-  // Recherche
   $('search-input').addEventListener('input', e=>performSearch(e.target.value));
 
   // Paramètres
   $('theme-select').addEventListener('change', e=>{ db.setSetting('theme',e.target.value); applyTheme(e.target.value); });
   $('lang-select').addEventListener('change', e=>{ db.setSetting('lang',e.target.value); state.lang?.setLanguage(e.target.value); });
   $('currency-select').addEventListener('change', e=>{ state.currency=e.target.value; db.setSetting('currency',e.target.value); if(state.currentView==='dashboard') renderDashboard(); });
-  $('sound-toggle').addEventListener('change', e=>db.setSetting('sound',e.target.checked?'1':'0'));
+  $('sound-toggle').addEventListener('change', e=>{ db.setSetting('sound',e.target.checked?'1':'0'); if(e.target.checked) playSound('success'); });
+  $('push-toggle')?.addEventListener('change', async e=>{
+    if (e.target.checked) {
+      const granted = await requestPushPermission();
+      e.target.checked = granted;
+      db.setSetting('push_notif', granted?'1':'0');
+      if (granted) showToast('Notifications activées!','success');
+    } else { db.setSetting('push_notif','0'); }
+  });
 
-  // QR Paramètres
+  // QR Paramètres (gestionnaire seulement)
   $('generate-qr-btn')?.addEventListener('click', ()=>{ $('settings-qr-container').classList.remove('hidden'); generateInviteQR('qrcode'); });
   $('download-qr-btn')?.addEventListener('click', ()=>downloadQR('qrcode','menap-invite-qr.png'));
 
@@ -1778,25 +1478,23 @@ function initEventListeners() {
     reader.readAsDataURL(file);
   });
 
-  // Supprimer compte
   $('delete-account-btn')?.addEventListener('click', ()=>{
-    if (!confirm('Supprimer définitivement votre compte et toutes vos données ? Action irréversible.')) return;
-    if (!confirm('Dernière confirmation : toutes les données seront supprimées.')) return;
-    db.deleteCurrentUser();
-    showToast('Compte supprimé.','info');
-    setTimeout(()=>location.reload(),800);
+    if (!confirm('Supprimer définitivement le compte et toutes les données? Irréversible.')) return;
+    if (!confirm('Dernière confirmation.')) return;
+    db.deleteCurrentUser(); showToast('Compte supprimé.','info');
+    setTimeout(()=>location.reload(), 800);
   });
 
   // Membres
-  $('generate-invite-qr-btn').addEventListener('click', ()=>{ $('invite-qr-container').classList.remove('hidden'); generateInviteQR('invite-qrcode'); });
-  $('download-invite-qr-btn').addEventListener('click', ()=>downloadQR('invite-qrcode','menap-invite-qr.png'));
-  $('transfer-privilege-btn').addEventListener('click', ()=>{
+  $('generate-invite-qr-btn')?.addEventListener('click', ()=>{ $('invite-qr-container').classList.remove('hidden'); generateInviteQR('invite-qrcode'); });
+  $('download-invite-qr-btn')?.addEventListener('click', ()=>downloadQR('invite-qrcode','menap-invite-qr.png'));
+  $('transfer-privilege-btn')?.addEventListener('click', ()=>{
     const targetId = $('transfer-target-select').value;
     if (!targetId) { showToast('Choisissez un membre','error'); return; }
     const profile = db.getProfile();
     const myMember = db.getMemberByUserId(profile.user_id);
     db.createTransferRequest(myMember?.id||null, parseInt(targetId));
-    showToast("Demande envoyée! En attente d'approbation.",'success');
+    showToast("Demande de transfert envoyée!",'success');
   });
 
   // Budget
@@ -1810,33 +1508,27 @@ function initEventListeners() {
   $('save-purchase-btn').addEventListener('click', savePurchase);
   $('save-refill-btn').addEventListener('click', saveRefill);
 
+  // Backup
   $('export-btn')?.addEventListener('click', exportMenap);
   $('export-db-btn')?.addEventListener('click', exportSQLiteDB);
-  $('export-select-all')?.addEventListener('click', ()=>{ document.querySelectorAll('.export-budget-cb').forEach(cb=>cb.checked=true); });
-  $('export-select-none')?.addEventListener('click', ()=>{ document.querySelectorAll('.export-budget-cb').forEach(cb=>cb.checked=false); });
+  $('export-select-all')?.addEventListener('click', ()=>document.querySelectorAll('.export-budget-cb').forEach(cb=>cb.checked=true));
+  $('export-select-none')?.addEventListener('click', ()=>document.querySelectorAll('.export-budget-cb').forEach(cb=>cb.checked=false));
   $('import-btn-trigger')?.addEventListener('click', ()=>{ $('import-preview').style.display='none'; $('import-file-input').click(); });
   $('import-file-input')?.addEventListener('change', e=>{ if(e.target.files[0]) handleImportFile(e.target.files[0]); e.target.value=''; });
-  $('import-select-all')?.addEventListener('click', ()=>{ document.querySelectorAll('.import-budget-cb').forEach(cb=>cb.checked=true); });
-  $('import-select-none')?.addEventListener('click', ()=>{ document.querySelectorAll('.import-budget-cb').forEach(cb=>cb.checked=false); });
+  $('import-select-all')?.addEventListener('click', ()=>document.querySelectorAll('.import-budget-cb').forEach(cb=>cb.checked=true));
+  $('import-select-none')?.addEventListener('click', ()=>document.querySelectorAll('.import-budget-cb').forEach(cb=>cb.checked=false));
   $('import-confirm-btn')?.addEventListener('click', confirmImport);
 
-  // Logout — export .menap
+  // Logout
   $('logout-export-dem')?.addEventListener('click', exportMenap);
   $('logout-confirm-btn')?.addEventListener('click', ()=>{ db.clearAll(); location.reload(); });
 
-  // ─── Onboarding Tabs (2 onglets seulement : Créer + Connexion) ───
+  // ─── Onboarding Tabs ───
   $('tab-onboard-create')?.addEventListener('click', ()=> setOnboardTab('create'));
   $('tab-onboard-login')?.addEventListener('click',  ()=> setOnboardTab('login'));
 
-  function setOnboardTab(tab) {
-    ['create','login'].forEach(t => {
-      $(`tab-onboard-${t}`)?.classList.toggle('active', t===tab);
-      $(`onboard-${t}-section`)?.classList.toggle('hidden', t!==tab);
-    });
-  }
-
   // Photo profil
-  $('profile-pic-input').addEventListener('change', e=>{
+  $('profile-pic-input')?.addEventListener('change', e=>{
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
@@ -1847,127 +1539,146 @@ function initEventListeners() {
     reader.readAsDataURL(file);
   });
 
-  // Créer profil
-  $('setup-start-btn').addEventListener('click', ()=>{
+  // Créer profil (gestionnaire uniquement)
+  $('setup-start-btn')?.addEventListener('click', ()=>{
     const fn = $('profile-first-name').value.trim();
     const ln = $('profile-last-name').value.trim();
     const em = $('profile-email').value.trim();
     const pw = $('profile-password').value;
     const lang = $('setup-lang-select').value;
     const currency = $('setup-currency-select').value;
-    const photo = $('profile-pic-preview').dataset.photo||'';
+    const photo = $('profile-pic-preview')?.dataset.photo||'';
 
     if (!fn) { showToast('Prénom requis','error'); return; }
     if (!em) { showToast('Email requis','error'); return; }
-    if (!pw || pw.length < 4) { showToast('Mot de passe trop court (min. 4 caractères)','error'); return; }
+    if (!pw || pw.length < 4) { showToast('Mot de passe min. 4 caractères','error'); return; }
 
-    const userId = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36));
-    db.saveProfile({ user_id:userId, first_name:fn, last_name:ln, email:em, password:pw, photo, role:'manager' });
-    db.setSetting('lang', lang);
-    db.setSetting('currency', currency);
-    db.setSetting('theme', 'light');
-    db.setSetting('initialized', '1');
+    // Vérifier qu'il n'y a pas déjà un gestionnaire
+    if (db.hasManager()) {
+      showToast('Ce ménage a déjà un gestionnaire. Utilisez "Rejoindre le ménage" pour vous connecter.','error');
+      return;
+    }
+
+    const userId = (typeof crypto!=='undefined'&&crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36);
+    db.saveProfile({ user_id:userId, first_name:fn, last_name:ln, email:em, password:pw, photo });
+    db.setSetting('lang', lang); db.setSetting('currency', currency); db.setSetting('theme','light'); db.setSetting('initialized','1');
     state.currency = currency;
 
+    // Ajouter comme gestionnaire dans members
+    db.addMember({ user_id:userId, first_name:fn, last_name:ln, email:em, password:pw, photo, role:'manager' });
+    db.setCurrentUser(userId);
+
     state.lang?.setLanguage(lang);
-    hideOnboarding();
-    updateSettingsProfile();
-    updateHeaderDate();
-    renderDashboard();
-    showToast(`Bienvenue ${fn}!`,'success');
+    sendPushNotification('Menap', `Bienvenue ${fn} ! Votre ménage est créé.`);
+    showToast(`Bienvenue ${fn} !`,'success');
+    applyLoginAfterInit();
   });
 
-  // Connexion email+mdp
-  $('login-btn').addEventListener('click', ()=>{
-    const em = $('login-email').value.trim();
-    const pw = $('login-password').value;
-    if (!em || !pw) { showToast('Email et mot de passe requis','error'); return; }
-    if (db.verifyPassword(em, pw)) {
+  // Connexion par sélection de membre
+  $('member-login-btn')?.addEventListener('click', ()=>{
+    const uid = $('selected-member-uid')?.value;
+    const pw = $('member-login-password')?.value;
+    if (!uid) { showToast('Sélectionnez votre profil','error'); return; }
+    if (!pw) { showToast('Mot de passe requis','error'); return; }
+
+    if (db.verifyMemberPassword(uid, pw)) {
       db.setSetting('initialized','1');
-      hideOnboarding();
-      updateSettingsProfile();
-      updateHeaderDate();
-      renderDashboard();
-      const p = db.getProfile();
-      showToast(`Bienvenue ${p.first_name}!`,'success');
+      db.setCurrentUser(uid);
+      const m = db.getMemberByUserId(uid);
+      showToast(`Bienvenue ${m?.first_name||''} !`,'success');
+      applyLoginAfterInit();
     } else {
-      showToast('Identifiants incorrects ou aucun compte trouvé sur le serveur.','error');
+      showToast('Mot de passe incorrect','error');
     }
   });
 
-  // Rejoindre le ménage (QR adhésion)
-  $('onboard-join-btn')?.addEventListener('click', () => {
-    let joinUserId = localStorage.getItem('menap_pending_join_uid');
-    if (!joinUserId) {
-      joinUserId = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36));
-      localStorage.setItem('menap_pending_join_uid', joinUserId);
-    }
-    const payload = JSON.stringify({
-      _t: 'join_request',
-      uid: joinUserId
-    });
-    generateQR('join-request-qrcode', payload, 220);
-    openModal('join-request-modal');
-    startJoinPoll(joinUserId);
+  // Touche Entrée sur le champ mot de passe
+  $('member-login-password')?.addEventListener('keydown', e=>{
+    if (e.key === 'Enter') $('member-login-btn')?.click();
   });
 
-  $('cancel-join-request-btn')?.addEventListener('click', () => {
-    stopJoinPoll();
-    closeModal('join-request-modal');
-  });
-  $('close-join-request-modal')?.addEventListener('click', () => {
-    stopJoinPoll();
-    closeModal('join-request-modal');
-  });
+  // Rejoindre le ménage (scan QR du gestionnaire)
+  $('join-household-btn')?.addEventListener('click', ()=> startCameraQRScan('join'));
 
-  // Compléter profil
-  $('complete-profile-save-btn')?.addEventListener('click', saveCompleteProfile);
-  $('complete-pic-input')?.addEventListener('change', e => {
+  // Photo join
+  $('join-photo-btn')?.addEventListener('click', ()=> $('join-photo-input')?.click());
+  $('join-photo-input')?.addEventListener('change', e=>{
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      const p = $('complete-pic-preview');
-      if (p) {
-        p.innerHTML = `<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-        p.dataset.photo = ev.target.result;
-      }
+      const p = $('join-photo-preview');
+      if (p) { p.innerHTML=`<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`; p.dataset.photo=ev.target.result; }
     };
     reader.readAsDataURL(file);
   });
 
-  // Toggle notifications
-  $('notification-toggle')?.addEventListener('change', async e => {
-    if (e.target.checked) {
-      if ('Notification' in window) {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-          db.setSetting('notifications', '1');
-          showToast('Notifications activées !', 'success');
-        } else {
-          db.setSetting('notifications', '0');
-          e.target.checked = false;
-          showToast('Permission refusée pour les notifications', 'error');
-        }
-      } else {
-        db.setSetting('notifications', '0');
-        e.target.checked = false;
-        showToast('Votre navigateur ne supporte pas les notifications', 'error');
-      }
-    } else {
-      db.setSetting('notifications', '0');
-      showToast('Notifications désactivées', 'info');
-    }
-  });
+  $('join-confirm-btn')?.addEventListener('click', confirmJoin);
+  $('join-pw-toggle')?.addEventListener('click', ()=> togglePw('join-password', $('join-pw-toggle')));
+  $('join-pw2-toggle')?.addEventListener('click', ()=> togglePw('join-password2', $('join-pw2-toggle')));
+
+  // Paramètres QR — masquer si non-gestionnaire
+  $('generate-qr-btn')?.closest?.('.qr-section')?.classList?.add?.('manager-only');
+
 } // fin initEventListeners
+
+function setOnboardTab(tab) {
+  ['create','login'].forEach(t => {
+    $(`tab-onboard-${t}`)?.classList.toggle('active', t===tab);
+    $(`onboard-${t}-section`)?.classList.toggle('hidden', t!==tab);
+  });
+}
+
+// ─── Profil édition ───
+function openEditProfile() {
+  const u = db.getCurrentUser() || db.getProfile(); if (!u) return;
+  $('edit-profile-first-name').value = u.first_name||'';
+  $('edit-profile-last-name').value  = u.last_name||'';
+  $('edit-profile-email').value      = u.email||'';
+  $('edit-profile-old-pw').value     = '';
+  $('edit-profile-new-pw').value     = '';
+  $('edit-profile-new-pw2').value    = '';
+  const preview = $('edit-profile-pic-preview');
+  if (preview) {
+    preview.dataset.photo = '';
+    preview.innerHTML = u.photo
+      ? `<img src="${u.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+      : `<i class="fas fa-user" style="font-size:28px;color:var(--primary-color)"></i>`;
+  }
+  const section = $('edit-profile-section');
+  if (section) section.style.display = section.style.display==='none' ? 'block' : 'none';
+}
+
+function saveEditProfile() {
+  const fn = $('edit-profile-first-name').value.trim();
+  const ln = $('edit-profile-last-name').value.trim();
+  const em = $('edit-profile-email').value.trim();
+  const oldPw = $('edit-profile-old-pw').value;
+  const newPw = $('edit-profile-new-pw').value;
+  const newPw2 = $('edit-profile-new-pw2').value;
+  const photo = $('edit-profile-pic-preview')?.dataset.photo || undefined;
+  if (!fn) { showToast('Prénom requis','error'); return; }
+  if (newPw && newPw !== newPw2) { showToast('Les mots de passe ne correspondent pas','error'); return; }
+  try {
+    db.updateProfileFull({ first_name:fn, last_name:ln, email:em, old_password:oldPw||undefined, new_password:newPw||undefined, photo });
+    showToast('Profil mis à jour!','success');
+    updateSettingsProfile();
+    const section = $('edit-profile-section');
+    if (section) section.style.display = 'none';
+  } catch(e) {
+    const msgs = { 'wrong_password':'Ancien mot de passe incorrect','password_short':'Mot de passe trop court (min 4)','old_password_required':'Entrez l\'ancien mot de passe' };
+    showToast(msgs[e.message]||'Erreur: '+e.message,'error');
+  }
+}
+
+// ─── Init App ───
 async function initApp() {
-  showLoading(true, 'Demarrage...');
+  showLoading(true, 'Connexion au serveur…');
   try {
     await db.init();
 
     const savedLang = db.getSetting('lang','fr');
     state.lang = new LangJS({
-      languagePath: 'lang/',
-      defaultLanguage: savedLang,
+      languagePath: 'lang/', defaultLanguage: savedLang,
       availableLanguages: ['fr','rw','rn','en'],
       onLanguageChange: lang => {
         db.setSetting('lang', lang);
@@ -1981,31 +1692,20 @@ async function initApp() {
     initCalculatorDrag();
     initEventListeners();
 
-    // Source unique = menap.db sur le serveur : si un profil y est, on va au dashboard
-    const serverProfile = db.getProfile();
-    const hasProfile = serverProfile && serverProfile.first_name && serverProfile.first_name.trim() !== '';
-    if (!hasProfile) {
+    // Vérifier si un membre est enregistré dans la DB serveur
+    const members = db.getMembers();
+    if (members.length === 0) {
+      // Aucun membre : première installation → onboarding création gestionnaire
       showLoading(false);
+      setOnboardTab('create');
       showOnboarding();
       return;
     }
-    // Synchroniser le flag initialized si nécessaire (migration)
-    if (db.getSetting('initialized','0') !== '1') db.setSetting('initialized','1');
 
-    updateSettingsProfile();
-    updateHeaderDate();
-    renderDashboard();
-    checkPrivilegeTransfer();
-
-    // Démarrer polling api.php
-    window._onRemoteChange = () => {
-      if (state.currentView === 'dashboard') renderDashboard();
-      updateSettingsProfile();
-      updateSyncIndicator();
-      sendLocalNotification("Menap - Mise à jour", "Les données du ménage ont été mises à jour par un autre membre.");
-    };
-    db.startPolling(15000);
-    updateSyncIndicator();
+    // Des membres existent → afficher sélection de profil (login)
+    showLoading(false);
+    showOnboarding(); // showOnboarding détecte les membres et affiche la liste
+    return;
 
   } catch(err) {
     console.error('App init error:', err);
@@ -2015,9 +1715,21 @@ async function initApp() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', initApp);
+function startPollingAfterLogin() {
+  window._onRemoteChange = () => {
+    if (state.currentView === 'dashboard') renderDashboard();
+    updateSettingsProfile(); updateSyncIndicator();
+  };
+  db.startPolling(15000);
+  updateSyncIndicator();
+}
 
-/**
- * MenapDB v3.0 - Couche SQLite via sql.js
- * Persistance: localStorage (base64) + export .db binaire
- */
+// Appelée après login réussi
+const _origApplyLogin = applyLoginAfterInit;
+// Override pour démarrer le polling
+window.applyLoginAfterInit = function() {
+  _origApplyLogin();
+  startPollingAfterLogin();
+};
+
+document.addEventListener('DOMContentLoaded', initApp);

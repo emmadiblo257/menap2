@@ -1,10 +1,12 @@
+/**
+ * Menap DB v4.1 — SQLite via sql.js, stockage exclusif api.php sigra.xo.je
+ */
 class MenapDB {
   constructor() {
     this.db = null;
     this.SQL = null;
-    this.STORAGE_KEY = 'menap_sqlite_v3';
+    this.API_URL = 'https://sigra.xo.je/menap/api.php';
     this.ready = false;
-    this._queue = [];
     this._syncPending = false;
     this._uploading = false;
     this._syncTimer = null;
@@ -14,10 +16,10 @@ class MenapDB {
   async init() {
     this.SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/${f}` });
 
-    // Charger depuis api.php — source UNIQUE et obligatoire
+    // Charger depuis le serveur — source UNIQUE
     let loaded = false;
     try {
-      const resp = await fetch('https://sigra.xo.je/menap/api.php', { cache: 'no-store' });
+      const resp = await fetch(this.API_URL, { cache: 'no-store', mode: 'cors' });
       if (resp.ok && resp.status !== 204) {
         const buf = await resp.arrayBuffer();
         if (buf.byteLength > 100) {
@@ -25,33 +27,12 @@ class MenapDB {
           loaded = true;
         }
       }
-    } catch(e) { console.warn('Init pull depuis api.php impossible:', e.message); }
+    } catch(e) { console.warn('Init depuis serveur impossible:', e.message); }
 
-    // Si le serveur ne répond pas ou base vide → base vide en mémoire
-    if (!loaded) {
-      this.db = new this.SQL.Database();
-    }
+    if (!loaded) this.db = new this.SQL.Database();
 
     this._schema();
     this._defaultSuggestions();
-
-    // Migration transparente du profil existant
-    try {
-      const legacyProf = this.getProfileLegacy();
-      if (legacyProf && legacyProf.user_id && legacyProf.first_name) {
-        const exists = this.getMemberByUserId(legacyProf.user_id);
-        if (!exists) {
-          this.db.run(`INSERT OR IGNORE INTO members (user_id, first_name, last_name, email, password, photo, role) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [legacyProf.user_id, legacyProf.first_name, legacyProf.last_name||'', legacyProf.email||'', legacyProf.password||'', legacyProf.photo||'', 'manager']);
-        }
-        if (!localStorage.getItem('menap_current_user_id')) {
-          localStorage.setItem('menap_current_user_id', legacyProf.user_id);
-        }
-      }
-    } catch (e) {
-      console.warn('Erreur lors de la migration du profil:', e);
-    }
-
     this.ready = true;
   }
 
@@ -98,7 +79,7 @@ class MenapDB {
       CREATE TABLE IF NOT EXISTS food_suggestions (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL);
       CREATE TABLE IF NOT EXISTS members (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT DEFAULT '',
+        user_id TEXT UNIQUE DEFAULT '',
         first_name TEXT DEFAULT '',
         last_name TEXT DEFAULT '',
         email TEXT DEFAULT '',
@@ -122,77 +103,63 @@ class MenapDB {
         created_at TEXT DEFAULT (datetime('now'))
       );
     `);
-    // Migrations: ajouter colonne password si absente
+    // Migrations
     try { this.db.run(`ALTER TABLE profile ADD COLUMN password TEXT DEFAULT ''`); } catch(e) {}
     try { this.db.run(`ALTER TABLE profile ADD COLUMN user_id TEXT DEFAULT ''`); } catch(e) {}
     try { this.db.run(`ALTER TABLE members ADD COLUMN password TEXT DEFAULT ''`); } catch(e) {}
+    try { this.db.run(`ALTER TABLE members ADD COLUMN email TEXT DEFAULT ''`); } catch(e) {}
   }
 
   _defaultSuggestions() {
     const items = ['Riz','Huile','Sucre','Sel','Farine','Haricots','Pommes de terre','Tomates','Oignons','Ail','Lait','Oeufs','Pain','Pâtes','Maïs','Sorgho','Manioc','Bananes','Poisson','Poulet','Viande','Savon','Eau','Café','Thé','Beurre','Margarine','Lentilles','Soja','Arachides'];
     const stmt = this.db.prepare(`INSERT OR IGNORE INTO food_suggestions (name) VALUES (?)`);
-    items.forEach(n => { stmt.run([n]); });
+    items.forEach(n => stmt.run([n]));
     stmt.free();
   }
 
-  _save() {
-    // Toutes les sauvegardes vont UNIQUEMENT sur le serveur via api.php
-    this._syncToServer();
-  }
+  _save() { this._syncToServer(); }
 
-  // ─── Profile ───
-  getProfileLegacy() {
-    try {
-      const res = this.db.exec(`SELECT * FROM profile WHERE id=1`);
-      if (!res.length || !res[0].values.length) return null;
-      const cols = res[0].columns, row = res[0].values[0];
-      return Object.fromEntries(cols.map((c,i) => [c, row[i]]));
-    } catch(e) {
-      return null;
-    }
-  }
-
+  // ─── Profile (gestionnaire principal) ───
   getProfile() {
-    const currentUserId = localStorage.getItem('menap_current_user_id');
-    if (!currentUserId) return { user_id:'', first_name:'', last_name:'', email:'', password:'', photo:'' };
-    const member = this.getMemberByUserId(currentUserId);
-    if (!member) return { user_id:'', first_name:'', last_name:'', email:'', password:'', photo:'' };
-    return {
-      user_id: member.user_id || '',
-      first_name: member.first_name || '',
-      last_name: member.last_name || '',
-      email: member.email || '',
-      password: member.password || '',
-      photo: member.photo || ''
-    };
+    const res = this.db.exec(`SELECT * FROM profile WHERE id=1`);
+    if (!res.length || !res[0].values.length)
+      return { user_id:'', first_name:'', last_name:'', email:'', password:'', photo:'' };
+    const cols = res[0].columns, row = res[0].values[0];
+    return Object.fromEntries(cols.map((c,i) => [c, row[i]]));
   }
 
   saveProfile(data) {
-    const currentUserId = data.user_id || localStorage.getItem('menap_current_user_id');
-    if (!currentUserId) return;
-    const existing = this.getMemberByUserId(currentUserId);
-    if (existing) {
-      this.db.run(`UPDATE members SET first_name=?,last_name=?,email=?,password=?,photo=? WHERE user_id=?`,
-        [data.first_name||existing.first_name||'', data.last_name||existing.last_name||'', data.email||existing.email||'', data.password||existing.password||'', data.photo||existing.photo||'', currentUserId]);
+    const existing = this.getProfile();
+    if (existing.first_name && existing.first_name !== '') {
+      this.db.run(`UPDATE profile SET user_id=?,first_name=?,last_name=?,email=?,password=?,photo=? WHERE id=1`,
+        [data.user_id||'',data.first_name||'',data.last_name||'',data.email||'',data.password||'',data.photo||'']);
     } else {
-      this.db.run(`INSERT INTO members (user_id,first_name,last_name,email,password,photo,role) VALUES (?,?,?,?,?,?,?)`,
-        [currentUserId, data.first_name||'', data.last_name||'', data.email||'', data.password||'', data.photo||'', data.role||'member']);
-    }
-    // Également maintenir la table legacy profile (id=1) pour compatibilité
-    try {
       this.db.run(`INSERT OR REPLACE INTO profile (id,user_id,first_name,last_name,email,password,photo) VALUES (1,?,?,?,?,?,?)`,
-        [currentUserId, data.first_name||'', data.last_name||'', data.email||'', data.password||'', data.photo||'']);
-    } catch(e) {}
+        [data.user_id||'',data.first_name||'',data.last_name||'',data.email||'',data.password||'',data.photo||'']);
+    }
     this._save();
   }
 
+  // Vérifie email+mdp dans profile (gestionnaire legacy)
   verifyPassword(email, password) {
-    const member = this._row(`SELECT * FROM members WHERE email=? AND password=?`, [email, password]);
-    if (member) {
-      localStorage.setItem('menap_current_user_id', member.user_id);
-      return true;
-    }
-    return false;
+    const p = this.getProfile();
+    return p.email === email && p.password === password;
+  }
+
+  // ─── Multi-profils : utilisateur courant ───
+  // Stocké en mémoire seulement (session locale)
+  _currentUserId = null;
+
+  setCurrentUser(userId) { this._currentUserId = userId; }
+
+  getCurrentUser() {
+    if (!this._currentUserId) return null;
+    return this.getMemberByUserId(this._currentUserId);
+  }
+
+  isCurrentUserManager() {
+    const u = this.getCurrentUser();
+    return u && u.role === 'manager';
   }
 
   // ─── Settings ───
@@ -210,7 +177,7 @@ class MenapDB {
   getBudgets() { return this._rows(`SELECT * FROM budgets ORDER BY start_date DESC`); }
   getBudget(id) { return this._row(`SELECT * FROM budgets WHERE id=?`, [id]); }
   getBudgetsByDate(dateStr) {
-    return this._rows(`SELECT * FROM budgets WHERE start_date <= ? AND end_date >= ? ORDER BY start_date DESC`, [dateStr, dateStr]);
+    return this._rows(`SELECT * FROM budgets WHERE start_date<=? AND end_date>=? ORDER BY start_date DESC`, [dateStr, dateStr]);
   }
 
   createBudget(data) {
@@ -228,7 +195,7 @@ class MenapDB {
 
   deleteBudget(id) {
     const items = this.getItemsByBudget(id);
-    items.forEach(it => { this.db.run(`DELETE FROM purchases WHERE item_id=?`, [it.id]); });
+    items.forEach(it => this.db.run(`DELETE FROM purchases WHERE item_id=?`, [it.id]));
     this.db.run(`DELETE FROM items WHERE budget_id=?`, [id]);
     this.db.run(`DELETE FROM payment_statuses WHERE budget_id=?`, [id]);
     this.db.run(`DELETE FROM budgets WHERE id=?`, [id]);
@@ -238,10 +205,12 @@ class MenapDB {
   // ─── Items ───
   getItemsByBudget(budgetId) { return this._rows(`SELECT * FROM items WHERE budget_id=? ORDER BY id`, [budgetId]); }
   getItem(id) { return this._row(`SELECT * FROM items WHERE id=?`, [id]); }
+
   getTotalSpentByBudget(budgetId) {
     const res = this.db.exec(`SELECT COALESCE(SUM(p.amount),0) FROM purchases p JOIN items i ON p.item_id=i.id WHERE i.budget_id=?`, [budgetId]);
     return res.length ? (res[0].values[0][0] || 0) : 0;
   }
+
   getTotalSpentByItem(itemId) {
     const res = this.db.exec(`SELECT COALESCE(SUM(amount),0) FROM purchases WHERE item_id=?`, [itemId]);
     return res.length ? (res[0].values[0][0] || 0) : 0;
@@ -289,9 +258,7 @@ class MenapDB {
   }
 
   // ─── Suggestions ───
-  getSuggestions() {
-    return this._rows(`SELECT name FROM food_suggestions ORDER BY name`).map(r => r.name);
-  }
+  getSuggestions() { return this._rows(`SELECT name FROM food_suggestions ORDER BY name`).map(r => r.name); }
 
   addSuggestion(name) {
     if (!name || name.length < 2) return;
@@ -304,12 +271,34 @@ class MenapDB {
   getMember(id) { return this._row(`SELECT * FROM members WHERE id=?`, [id]); }
   getMemberByUserId(userId) { return this._row(`SELECT * FROM members WHERE user_id=?`, [userId]); }
   getMemberById(id) { return this._row(`SELECT * FROM members WHERE id=?`, [id]); }
+  getManagerMember() { return this._row(`SELECT * FROM members WHERE role='manager' LIMIT 1`); }
+  hasManager() { return !!this.getManagerMember(); }
 
   addMember(data) {
-    this.db.run(`INSERT OR IGNORE INTO members (user_id,first_name,last_name,email,photo,role) VALUES (?,?,?,?,?,?)`,
-      [data.user_id||'', data.first_name||'', data.last_name||'', data.email||'', data.photo||'', data.role||'member']);
+    // Vérifier unicité user_id si fourni
+    if (data.user_id) {
+      const existing = this.getMemberByUserId(data.user_id);
+      if (existing) return existing.id;
+    }
+    this.db.run(
+      `INSERT INTO members (user_id,first_name,last_name,email,password,photo,role) VALUES (?,?,?,?,?,?,?)`,
+      [data.user_id||'', data.first_name||'', data.last_name||'', data.email||'', data.password||'', data.photo||'', data.role||'member']
+    );
     this._save();
     return this.db.exec(`SELECT last_insert_rowid() as id`)[0].values[0][0];
+  }
+
+  updateMember(id, data) {
+    const existing = this.getMember(id);
+    if (!existing) return;
+    this.db.run(
+      `UPDATE members SET first_name=?,last_name=?,email=?,password=?,photo=?,role=? WHERE id=?`,
+      [data.first_name||existing.first_name, data.last_name||existing.last_name,
+       data.email||existing.email, data.password||existing.password,
+       data.photo !== undefined ? data.photo : existing.photo,
+       data.role||existing.role, id]
+    );
+    this._save();
   }
 
   updateMemberRole(id, role) {
@@ -323,13 +312,17 @@ class MenapDB {
     this._save();
   }
 
+  // Vérifier le mot de passe d'un membre (par user_id)
+  verifyMemberPassword(userId, password) {
+    const m = this.getMemberByUserId(userId);
+    return m && m.password === password;
+  }
+
   // ─── Payment Statuses ───
   initPaymentStatusesForBudget(budgetId) {
     const members = this.getMembers();
     members.forEach(m => {
-      try {
-        this.db.run(`INSERT OR IGNORE INTO payment_statuses (budget_id,member_id,is_paid) VALUES (?,?,0)`, [budgetId, m.id]);
-      } catch(e) {}
+      try { this.db.run(`INSERT OR IGNORE INTO payment_statuses (budget_id,member_id,is_paid) VALUES (?,?,0)`, [budgetId, m.id]); } catch(e) {}
     });
     this._save();
   }
@@ -366,73 +359,52 @@ class MenapDB {
     this._save();
   }
 
-  // ─── Modifier le profil ───
+  // ─── Modifier profil membre courant ───
   updateProfileFull({ first_name, last_name, email, old_password, new_password, photo }) {
-    const profile = this.getProfile();
-    if (!profile || !profile.user_id) throw new Error('not_logged_in');
-    
-    // Check if email already exists in members table (other than this user)
-    if (email && email !== profile.email) {
-      const existing = this._row(`SELECT id FROM members WHERE email=? AND user_id != ?`, [email, profile.user_id]);
-      if (existing) throw new Error('email_exists');
-    }
+    const user = this.getCurrentUser();
+    if (!user) throw new Error('not_logged_in');
     if (new_password) {
       if (!old_password) throw new Error('old_password_required');
-      const pwCheck = this._row(`SELECT id FROM members WHERE user_id=? AND password=?`, [profile.user_id, old_password]);
-      if (!pwCheck) throw new Error('wrong_password');
+      if (user.password !== old_password) throw new Error('wrong_password');
       if (new_password.length < 4) throw new Error('password_short');
     }
-    const fn = first_name || profile.first_name;
-    const ln = last_name !== undefined ? last_name : profile.last_name;
-    const em = email || profile.email;
-    const ph = photo !== undefined ? photo : profile.photo;
-    const pw = new_password || profile.password;
-    
+    const fn = first_name || user.first_name;
+    const ln = last_name !== undefined ? last_name : user.last_name;
+    const em = email || user.email;
+    const ph = photo !== undefined ? photo : user.photo;
+    const pw = new_password || user.password;
     this.db.run(`UPDATE members SET first_name=?,last_name=?,email=?,photo=?,password=? WHERE user_id=?`,
-      [fn, ln, em, ph, pw, profile.user_id]);
-      
-    // Also update legacy profile table for compatibility
-    try {
-      this.db.run(`UPDATE profile SET first_name=?,last_name=?,email=?,photo=?,password=? WHERE user_id=?`,
-        [fn, ln, em, ph, pw, profile.user_id]);
-    } catch(e) {}
-    
+      [fn, ln, em, ph, pw, user.user_id]);
+    // Sync profile table si gestionnaire
+    if (user.role === 'manager') {
+      this.db.run(`UPDATE profile SET first_name=?,last_name=?,email=?,photo=?,password=? WHERE id=1`,
+        [fn, ln, em, ph, pw]);
+    }
     this._save();
   }
 
-  // ─── Supprimer compte ───
-  deleteCurrentUser() {
-    this.clearAll();
-  }
+  deleteCurrentUser() { this.clearAll(); }
 
   // ─── Export / Import .menap ───
-  // Exporter uniquement les budgets sélectionnés (ids = tableau d'ids, null = tous)
   exportToMenap(budgetIds = null) {
     const profile = this.getProfile();
     const allBudgets = this.getBudgets();
-    const toExport = budgetIds
-      ? allBudgets.filter(b => budgetIds.includes(b.id))
-      : allBudgets;
-    const budgets = toExport.map(b => {
-      const items = this.getItemsByBudget(b.id).map(it => ({
-        ...it, purchases: this.getPurchasesByItem(it.id)
-      }));
-      return { ...b, items };
+    const toExport = budgetIds ? allBudgets.filter(b => budgetIds.includes(b.id)) : allBudgets;
+    const budgets = toExport.map(b => ({
+      ...b, items: this.getItemsByBudget(b.id).map(it => ({ ...it, purchases: this.getPurchasesByItem(it.id) }))
+    }));
+    const data = JSON.stringify({
+      _menap: 4, profile, settings: {
+        theme: this.getSetting('theme','light'), lang: this.getSetting('lang','fr'),
+        currency: this.getSetting('currency','BIF'), sound: this.getSetting('sound','1')
+      },
+      budgets, members: this.getMembers(), foodSuggestions: this.getSuggestions()
     });
-    const members = this.getMembers();
-    const settings = {
-      theme: this.getSetting('theme','light'),
-      lang: this.getSetting('lang','fr'),
-      currency: this.getSetting('currency','BIF'),
-      sound: this.getSetting('sound','1')
-    };
-    const data = JSON.stringify({ _menap: 4, profile, settings, budgets, members, foodSuggestions: this.getSuggestions() });
     let enc = '';
     for (let i = 0; i < data.length; i++) enc += String.fromCharCode(data.charCodeAt(i) ^ 42);
     return btoa(unescape(encodeURIComponent(enc)));
   }
 
-  // Décoder un fichier .menap et retourner l'objet JSON (sans importer)
   parseMenapFile(content) {
     try {
       let str = content;
@@ -447,13 +419,10 @@ class MenapDB {
     } catch(e) { return null; }
   }
 
-  // Importer uniquement certains budgets depuis un objet décodé (budgetIndices = tableau d'index dans data.budgets)
-  // Retourne { ok, imported, skipped } — skipped = budgets déjà existants (même nom + dates)
   importFromMenap(content, budgetIndices = null) {
     try {
       const data = this.parseMenapFile(content);
       if (!data) return { ok: false, imported: 0, skipped: 0 };
-      // Filtrage des budgets si sélection
       if (budgetIndices !== null && data.budgets) {
         data.budgets = data.budgets.filter((_, i) => budgetIndices.includes(i));
       }
@@ -465,7 +434,6 @@ class MenapDB {
     }
   }
 
-  // Compatibilité anciens fichiers .dem
   exportToDem() { return this.exportToMenap(); }
   importFromDem(content) { return this.importFromMenap(content); }
 
@@ -484,11 +452,11 @@ class MenapDB {
     this._syncPending = false;
     if (window._onSyncStateChange) window._onSyncStateChange();
     try {
-      // Envoyer le binaire SQLite brut (ce qu'attend api.php)
-      const bin = this.db.export(); // Uint8Array
-      const resp = await fetch('https://sigra.xo.je/menap/api.php', {
+      const bin = this.db.export();
+      const resp = await fetch(this.API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/octet-stream' },
+        mode: 'cors',
         body: bin
       });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -506,20 +474,16 @@ class MenapDB {
     this._pollTimer = setInterval(async () => {
       if (!navigator.onLine || this._uploading || this._syncPending) return;
       try {
-        // Vérifier si la version a changé (endpoint léger)
-        const vResp = await fetch('https://sigra.xo.je/menap/api.php?action=version', { cache: 'no-store' });
+        const vResp = await fetch(this.API_URL + '?action=version', { cache: 'no-store', mode: 'cors' });
         if (!vResp.ok) return;
         const vJson = await vResp.json();
-        if (vJson.ts <= lastTs) return; // rien de nouveau
+        if (vJson.ts <= lastTs) return;
         lastTs = vJson.ts;
-        // Télécharger la nouvelle base
-        const resp = await fetch('https://sigra.xo.je/menap/api.php', { cache: 'no-store' });
+        const resp = await fetch(this.API_URL, { cache: 'no-store', mode: 'cors' });
         if (!resp.ok || resp.status === 204) return;
         const buf = await resp.arrayBuffer();
         if (buf.byteLength < 100) return;
-        const arr = new Uint8Array(buf);
-        this.db = new this.SQL.Database(arr);
-        // Pas de localStorage — données uniquement en mémoire + serveur
+        this.db = new this.SQL.Database(new Uint8Array(buf));
         if (window._onSyncStateChange) window._onSyncStateChange();
         if (window._onRemoteChange) window._onRemoteChange();
       } catch(e) {}
@@ -531,30 +495,17 @@ class MenapDB {
     if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
   }
 
-  // ─── Helpers _applyDemData ───
-  importFromDem_compat(content) {
-    return this.importFromMenap(content);
-  }
-
   _applyDemData(data) {
     let imported = 0, skipped = 0;
-    if (data.profile) {
-      this.saveProfile(data.profile);
-    }
+    if (data.profile) this.saveProfile(data.profile);
     if (data.settings) {
-      Object.entries(data.settings).forEach(([k,v]) => this.db.run(`INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k,String(v)]));
+      Object.entries(data.settings).forEach(([k,v]) =>
+        this.db.run(`INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(v)]));
     }
     if (data.budgets) {
       data.budgets.forEach(b => {
-        // Vérifier si un budget identique existe déjà (même nom + mêmes dates)
-        const exists = this._row(
-          `SELECT id FROM budgets WHERE name=? AND start_date=? AND end_date=?`,
-          [b.name, b.start_date, b.end_date]
-        );
-        if (exists) {
-          skipped++;
-          return; // Ne pas importer ce doublon
-        }
+        const exists = this._row(`SELECT id FROM budgets WHERE name=? AND start_date=? AND end_date=?`, [b.name, b.start_date, b.end_date]);
+        if (exists) { skipped++; return; }
         this.db.run(`INSERT INTO budgets (name,start_date,end_date,duration_type,duration_value) VALUES (?,?,?,?,?)`,
           [b.name, b.start_date, b.end_date, b.duration_type||'month', b.duration_value||1]);
         const bid = this.db.exec(`SELECT last_insert_rowid() as id`)[0].values[0][0];
@@ -562,17 +513,17 @@ class MenapDB {
           this.db.run(`INSERT OR IGNORE INTO items (budget_id,name,budgeted_amount,is_finished,finished_date) VALUES (?,?,?,?,?)`,
             [bid, it.name, it.budgeted_amount||0, it.is_finished||0, it.finished_date||null]);
           const iid = this.db.exec(`SELECT last_insert_rowid() as id`)[0].values[0][0];
-          if (it.purchases) it.purchases.forEach(p => {
+          if (it.purchases) it.purchases.forEach(p =>
             this.db.run(`INSERT OR IGNORE INTO purchases (item_id,date,amount,qty,note) VALUES (?,?,?,?,?)`,
-              [iid, p.date, p.amount, p.qty||'', p.note||'']);
-          });
+              [iid, p.date, p.amount, p.qty||'', p.note||'']));
         });
         imported++;
       });
     }
     if (data.members) {
-      data.members.forEach(m => this.db.run(`INSERT OR IGNORE INTO members (user_id,first_name,last_name,email,photo,role) VALUES (?,?,?,?,?,?)`,
-        [m.user_id||'', m.first_name||'', m.last_name||'', m.email||'', m.photo||'', m.role||'member']));
+      data.members.forEach(m =>
+        this.db.run(`INSERT OR IGNORE INTO members (user_id,first_name,last_name,email,password,photo,role) VALUES (?,?,?,?,?,?,?)`,
+          [m.user_id||'', m.first_name||'', m.last_name||'', m.email||'', m.password||'', m.photo||'', m.role||'member']));
     }
     if (data.foodSuggestions) {
       data.foodSuggestions.forEach(n => { try { this.db.run(`INSERT OR IGNORE INTO food_suggestions (name) VALUES (?)`, [n]); } catch(e) {} });
@@ -581,25 +532,15 @@ class MenapDB {
     return { imported, skipped };
   }
 
-  exportToBinary() {
-    return this.db.export();
-  }
+  exportToBinary() { return this.db.export(); }
 
   clearAll() {
-    this.db.run(`DELETE FROM profile`);
-    this.db.run(`DELETE FROM settings`);
-    this.db.run(`DELETE FROM budgets`);
-    this.db.run(`DELETE FROM items`);
-    this.db.run(`DELETE FROM purchases`);
-    this.db.run(`DELETE FROM members`);
-    this.db.run(`DELETE FROM payment_statuses`);
-    this.db.run(`DELETE FROM transfer_requests`);
+    ['profile','settings','budgets','items','purchases','members','payment_statuses','transfer_requests']
+      .forEach(t => this.db.run(`DELETE FROM ${t}`));
     this._save();
-    // Nettoyer tout résidu localStorage existant (migration)
-    try { localStorage.removeItem(this.STORAGE_KEY); } catch(e) {}
+    try { localStorage.clear(); } catch(e) {}
   }
 
-  // ─── Helpers ───
   _rows(sql, params = []) {
     try {
       const res = this.db.exec(sql, params);
@@ -613,23 +554,6 @@ class MenapDB {
     const rows = this._rows(sql, params);
     return rows.length ? rows[0] : null;
   }
-
-  _arrToB64(arr) {
-    let binary = '';
-    const bytes = new Uint8Array(arr);
-    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-    return btoa(binary);
-  }
-
-  _b64ToArr(base64) {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
-  }
 }
 
-// Instance globale
 const db = new MenapDB();
-
-

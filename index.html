@@ -22,19 +22,22 @@
   <div id="onboarding-screen" class="onboarding-overlay hidden">
     <div class="onboarding-card">
       <div class="onboarding-logo"><i class="fas fa-wallet"></i></div>
-      <h2 translate="setup.title">Bienvenue sur Menap</h2>
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px" translate="setup.desc">Gérez votre budget achataire familial.</p>
+      <h2>Bienvenue sur Menap</h2>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Gérez votre budget achataire familial.</p>
 
-      <!-- Tabs Onboarding (2 onglets) -->
+      <!-- Tabs Onboarding -->
       <div class="tabs onboarding-tabs">
-        <div class="tab active" id="tab-onboard-create">Créer Profil</div>
+        <div class="tab active" id="tab-onboard-create">Créer Ménage</div>
         <div class="tab" id="tab-onboard-login">Connexion</div>
       </div>
 
-      <!-- === Section Créer Profil === -->
+      <!-- ══ Onglet Créer (Gestionnaire uniquement) ══ -->
       <div id="onboard-create-section">
+        <div class="onboard-role-badge">
+          <i class="fas fa-crown"></i> Vous serez le Gestionnaire de ce ménage
+        </div>
         <div class="setup-group">
-          <label translate="setup.select_lang">Langue</label>
+          <label>Langue</label>
           <select id="setup-lang-select">
             <option value="fr" selected>Français</option>
             <option value="rw">Kinyarwanda</option>
@@ -43,7 +46,7 @@
           </select>
         </div>
         <div class="setup-group">
-          <label translate="setup.select_currency">Devise</label>
+          <label>Devise</label>
           <select id="setup-currency-select">
             <option value="BIF" selected>BIF (FBu)</option>
             <option value="RWF">RWF (FRw)</option>
@@ -82,30 +85,95 @@
             <button type="button" class="backup-btn" style="width:auto;padding:6px 12px;font-size:12px;margin:0" onclick="document.getElementById('profile-pic-input').click()"><i class="fas fa-camera"></i> Photo</button>
           </div>
         </div>
-        <button id="setup-start-btn" class="primary-btn">Commencer <i class="fas fa-arrow-right"></i></button>
+        <button id="setup-start-btn" class="primary-btn">Créer le Ménage <i class="fas fa-arrow-right"></i></button>
       </div>
 
-      <!-- === Section Connexion (email + mdp) === -->
+      <!-- ══ Onglet Connexion (sélection membre) ══ -->
       <div id="onboard-login-section" class="hidden">
-        <button type="button" class="backup-btn-alt" id="onboard-join-btn" style="width:100%;margin-bottom:12px"><i class="fas fa-user-plus"></i> Cliquer pour rejoindre le ménage</button>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Connectez-vous avec votre email et mot de passe.</p>
-        <div class="form-group">
-          <label style="text-align:left;font-size:11px">Email</label>
-          <input type="email" id="login-email" placeholder="jean@example.com">
-        </div>
-        <div class="form-group">
-          <label style="text-align:left;font-size:11px">Mot de passe</label>
-          <div class="password-wrapper">
-            <input type="password" id="login-password" placeholder="••••••">
-            <button type="button" class="toggle-pw-btn" onclick="togglePw('login-password',this)"><i class="fas fa-eye"></i></button>
+        <!-- Alerte profils trouvés -->
+        <div id="login-profile-hint" style="display:none;font-size:12px;font-weight:600;color:var(--primary-color);background:var(--primary-light,rgba(13,148,136,.1));border-radius:8px;padding:8px 12px;margin-bottom:12px;text-align:center"></div>
+
+        <!-- Grille sélection membres -->
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;text-align:left">Sélectionnez votre profil :</p>
+        <div id="member-login-list" class="member-login-grid"></div>
+
+        <!-- Section mot de passe (apparaît après sélection) -->
+        <div id="member-pw-section" style="display:none;margin-top:14px;padding:12px;background:var(--primary-light,rgba(13,148,136,.08));border-radius:12px">
+          <input type="hidden" id="selected-member-uid" value="">
+          <p id="selected-member-name" style="font-size:13px;font-weight:600;color:var(--primary-dark,#0a6b63);margin-bottom:10px;text-align:center"></p>
+          <div class="form-group" style="margin-bottom:10px">
+            <label style="text-align:left;font-size:11px">Mot de passe</label>
+            <div class="password-wrapper">
+              <input type="password" id="member-login-password" placeholder="••••••">
+              <button type="button" class="toggle-pw-btn" onclick="togglePw('member-login-password',this)"><i class="fas fa-eye"></i></button>
+            </div>
           </div>
+          <button id="member-login-btn" class="primary-btn"><i class="fas fa-sign-in-alt"></i> Se connecter</button>
         </div>
-        <div id="login-profile-hint" style="display:none;font-size:12px;font-weight:600;color:var(--primary-color);background:var(--primary-light,rgba(13,148,136,.1));border-radius:8px;padding:8px 12px;margin-bottom:10px;text-align:center"></div>
-        <button id="login-btn" class="primary-btn"><i class="fas fa-sign-in-alt"></i> Se connecter</button>
+
+        <!-- Rejoindre un ménage -->
+        <div class="onboard-divider"><span>ou</span></div>
+        <button id="join-household-btn" class="backup-btn-alt" style="width:100%">
+          <i class="fas fa-users"></i> Rejoindre le ménage du gestionnaire
+        </button>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">Le gestionnaire vous montre son QR code à scanner</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL REJOINDRE LE MÉNAGE ═══ -->
+  <div id="join-modal" class="modal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title-bar">
+        <button id="close-join-modal"><i class="fas fa-arrow-left"></i></button>
+        <span>Rejoindre le Ménage</span>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="join-manager-badge">
+        <i class="fas fa-link"></i>
+        <span id="join-manager-info">Invité par le gestionnaire</span>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Remplissez vos informations. Vous serez ajouté comme membre du ménage.</p>
+
+      <div class="form-group-row">
+        <div class="form-group" style="flex:1;margin-bottom:0">
+          <label style="text-align:left;font-size:11px">Prénom *</label>
+          <input type="text" id="join-first-name" placeholder="Prénom">
+        </div>
+        <div class="form-group" style="flex:1;margin-bottom:0">
+          <label style="text-align:left;font-size:11px">Nom</label>
+          <input type="text" id="join-last-name" placeholder="Nom">
+        </div>
       </div>
 
-      <!-- === Section QR / Fichier === -->
+      <div class="form-group" style="margin-top:12px">
+        <label style="text-align:left;font-size:11px">Mot de passe * (min. 4 caractères)</label>
+        <div class="password-wrapper">
+          <input type="password" id="join-password" placeholder="••••••">
+          <button type="button" id="join-pw-toggle" class="toggle-pw-btn"><i class="fas fa-eye"></i></button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label style="text-align:left;font-size:11px">Confirmer le mot de passe *</label>
+        <div class="password-wrapper">
+          <input type="password" id="join-password2" placeholder="••••••">
+          <button type="button" id="join-pw2-toggle" class="toggle-pw-btn"><i class="fas fa-eye"></i></button>
+        </div>
+      </div>
 
+      <div class="form-group" style="text-align:left;margin-bottom:16px">
+        <label style="font-size:11px">Photo (optionnel)</label>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+          <div id="join-photo-preview" class="avatar-preview" data-photo="">
+            <i class="fas fa-user" style="font-size:20px;color:var(--text-muted)"></i>
+          </div>
+          <input type="file" id="join-photo-input" accept="image/*" style="display:none">
+          <button type="button" id="join-photo-btn" class="backup-btn" style="width:auto;padding:6px 12px;font-size:12px;margin:0"><i class="fas fa-camera"></i> Photo</button>
+        </div>
+      </div>
+
+      <button id="join-confirm-btn" class="primary-btn"><i class="fas fa-check-circle"></i> Rejoindre le Ménage</button>
     </div>
   </div>
 
@@ -118,81 +186,19 @@
       </div>
     </div>
     <div class="modal-body">
-      <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:8px">Cadrez le QR code dans le carré ci-dessous</p>
+      <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:8px">Pointez la caméra vers le QR code du gestionnaire</p>
       <div class="camera-viewport">
         <video id="qr-camera-video" autoplay playsinline muted></video>
         <canvas id="qr-camera-canvas"></canvas>
-        <div class="camera-scan-overlay"><div class="camera-scan-frame"><span></span><div class="camera-scan-laser"></div></div></div>
-      </div>
-      <div id="camera-qr-status" class="camera-scan-status"></div>
-      <button id="stop-camera-btn" class="danger-btn-alt" style="margin-top:12px"><i class="fas fa-stop"></i> Arrêter la caméra</button>
-    </div>
-  </div>
-
-  <!-- ═══ REJOINDRE MÉNAGE QR ═══ -->
-  <div id="join-request-modal" class="modal" style="display:none">
-    <div class="modal-header">
-      <div class="modal-title-bar">
-        <button id="close-join-request-modal"><i class="fas fa-arrow-left"></i></button>
-        <span>Rejoindre le ménage</span>
-      </div>
-    </div>
-    <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
-      <p style="font-size:14px;color:var(--text-color);font-weight:500">
-        Demandez au gestionnaire du ménage de scanner le QR code ci-dessous pour vous ajouter.
-      </p>
-      <div id="join-request-qrcode" class="qr-canvas-wrapper" style="margin:10px 0;background:white;padding:10px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
-      <p style="font-size:12px;color:var(--text-muted)">
-        Une fois que le gérant aura scanné ce code, cet écran se mettra à jour automatiquement pour vous permettre de compléter vos informations.
-      </p>
-      <div class="spinner" id="join-request-spinner" style="margin-top:10px"></div>
-      <button id="cancel-join-request-btn" class="danger-btn-alt" style="margin-top:10px"><i class="fas fa-times"></i> Annuler la demande</button>
-    </div>
-  </div>
-
-  <!-- ═══ COMPLÉTER PROFIL Modal ═══ -->
-  <div id="complete-profile-modal" class="modal" style="display:none">
-    <div class="modal-header">
-      <div class="modal-title-bar">
-        <span>Compléter votre profil</span>
-      </div>
-    </div>
-    <div class="modal-body">
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">
-        Votre demande d'adhésion a été validée. Veuillez compléter vos informations pour finaliser la création de votre compte.
-      </p>
-      <div class="form-group-row" style="display:flex;gap:12px">
-        <div class="form-group" style="flex:1;margin-bottom:0">
-          <label style="text-align:left;font-size:11px">Prénom *</label>
-          <input type="text" id="complete-first-name" placeholder="Jean">
-        </div>
-        <div class="form-group" style="flex:1;margin-bottom:0">
-          <label style="text-align:left;font-size:11px">Nom</label>
-          <input type="text" id="complete-last-name" placeholder="Ndiaye">
-        </div>
-      </div>
-      <div class="form-group" style="margin-top:12px">
-        <label style="text-align:left;font-size:11px">Email *</label>
-        <input type="email" id="complete-email" placeholder="jean@example.com">
-      </div>
-      <div class="form-group">
-        <label style="text-align:left;font-size:11px">Mot de passe * (min. 4 caractères)</label>
-        <div class="password-wrapper">
-          <input type="password" id="complete-password" placeholder="••••••">
-          <button type="button" class="toggle-pw-btn" onclick="togglePw('complete-password',this)"><i class="fas fa-eye"></i></button>
-        </div>
-      </div>
-      <div class="form-group" style="text-align:left;margin-bottom:16px">
-        <label style="font-size:11px">Photo de profil</label>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
-          <div id="complete-pic-preview" class="avatar-preview" style="width:52px;height:52px;border-radius:50%;background:var(--card-bg);border:2px solid var(--primary-color);display:flex;align-items:center;justify-content:center;overflow:hidden">
-            <i class="fas fa-user" style="font-size:20px;color:var(--text-muted)"></i>
+        <div class="camera-scan-overlay">
+          <div class="camera-scan-frame">
+            <span></span>
+            <div class="camera-scan-laser"></div>
           </div>
-          <input type="file" id="complete-pic-input" accept="image/*" style="display:none">
-          <button type="button" class="backup-btn" style="width:auto;padding:6px 12px;font-size:12px;margin:0" onclick="document.getElementById('complete-pic-input').click()"><i class="fas fa-camera"></i> Photo</button>
         </div>
       </div>
-      <button id="complete-profile-save-btn" class="primary-btn">Enregistrer et Continuer <i class="fas fa-arrow-right"></i></button>
+      <div id="camera-qr-status" class="camera-scan-status">Initialisation...</div>
+      <button id="stop-camera-btn" class="danger-btn-alt" style="margin-top:12px"><i class="fas fa-stop"></i> Arrêter la caméra</button>
     </div>
   </div>
 
@@ -218,7 +224,7 @@
     <div class="modal-body settings-body">
       <!-- Profil -->
       <div class="setting-item">
-        <h3 style="font-size:14px;font-weight:700;color:var(--primary-color);margin-bottom:12px"><i class="fas fa-user-circle"></i> Profil</h3>
+        <h3 style="font-size:14px;font-weight:700;color:var(--primary-color);margin-bottom:12px"><i class="fas fa-user-circle"></i> Mon Profil</h3>
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
           <img id="settings-profile-pic" src="" style="width:56px;height:56px;border-radius:50%;border:2px solid var(--primary-color);display:none;object-fit:cover">
           <div id="settings-profile-pic-fallback" style="width:56px;height:56px;border-radius:50%;background:var(--primary-color);display:flex;align-items:center;justify-content:center;color:white;font-size:22px"><i class="fas fa-user"></i></div>
@@ -227,18 +233,19 @@
             <div id="settings-profile-email" style="font-size:12px;color:var(--text-muted)">—</div>
           </div>
         </div>
-        <!-- QR Auth -->
-        <button id="generate-qr-btn" class="backup-btn" style="margin-bottom:10px"><i class="fas fa-qrcode"></i> Générer QR d'Invitation</button>
-        <div id="settings-qr-container" class="qr-display-box hidden">
-          <div id="qrcode" class="qr-canvas-wrapper"></div>
-          <button id="download-qr-btn" class="backup-btn-alt" style="padding:6px 14px;font-size:12px;width:auto"><i class="fas fa-download"></i> Télécharger QR</button>
-          <p style="font-size:11px;color:var(--text-muted);text-align:center;max-width:220px">Partagez ce QR pour inviter quelqu'un à rejoindre votre ménage.</p>
+        <!-- QR Auth — gestionnaire seulement -->
+        <div id="qr-invite-section">
+          <button id="generate-qr-btn" class="backup-btn" style="margin-bottom:10px"><i class="fas fa-qrcode"></i> Générer QR d'Invitation</button>
+          <div id="settings-qr-container" class="qr-display-box hidden">
+            <div id="qrcode" class="qr-canvas-wrapper"></div>
+            <button id="download-qr-btn" class="backup-btn-alt" style="padding:6px 14px;font-size:12px;width:auto"><i class="fas fa-download"></i> Télécharger QR</button>
+            <p style="font-size:11px;color:var(--text-muted);text-align:center;max-width:220px">Partagez ce QR pour inviter quelqu'un à rejoindre votre ménage.</p>
+          </div>
         </div>
         <!-- Modifier le profil -->
-        <button id="edit-profile-btn" class="backup-btn-alt" style="margin-top:10px"><i class="fas fa-user-edit"></i> Modifier le profil</button>
+        <button id="edit-profile-btn" class="backup-btn-alt" style="margin-top:10px"><i class="fas fa-user-edit"></i> Modifier mon profil</button>
         <div id="edit-profile-section" style="display:none;margin-top:12px;padding:14px;border-radius:12px;background:var(--primary-light);border:1.5px solid var(--primary-color)">
           <h4 style="font-size:13px;font-weight:700;color:var(--primary-dark);margin-bottom:12px"><i class="fas fa-edit"></i> Modifier le profil</h4>
-          <!-- Photo -->
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
             <div id="edit-profile-pic-preview" style="width:52px;height:52px;border-radius:50%;background:var(--card-bg);border:2px solid var(--primary-color);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer" data-photo="">
               <i class="fas fa-user" style="font-size:22px;color:var(--primary-color)"></i>
@@ -246,7 +253,6 @@
             <button type="button" id="edit-profile-pic-btn" class="backup-btn-alt" style="font-size:12px;padding:6px 12px;width:auto"><i class="fas fa-camera"></i> Changer photo</button>
             <input type="file" id="edit-profile-pic-input" accept="image/*" style="display:none">
           </div>
-          <!-- Nom -->
           <div class="form-group" style="margin-bottom:10px">
             <label style="font-size:12px;font-weight:600">Prénom</label>
             <input type="text" id="edit-profile-first-name" placeholder="Prénom" style="margin-top:4px">
@@ -255,12 +261,10 @@
             <label style="font-size:12px;font-weight:600">Nom</label>
             <input type="text" id="edit-profile-last-name" placeholder="Nom (optionnel)" style="margin-top:4px">
           </div>
-          <!-- Email -->
           <div class="form-group" style="margin-bottom:10px">
             <label style="font-size:12px;font-weight:600">Email</label>
             <input type="email" id="edit-profile-email" placeholder="email@exemple.com" style="margin-top:4px">
           </div>
-          <!-- Changer mot de passe -->
           <div style="border-top:1px solid var(--border-color);padding-top:10px;margin-top:10px">
             <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Changer le mot de passe (optionnel)</p>
             <div class="form-group" style="margin-bottom:8px">
@@ -272,7 +276,7 @@
               <input type="password" id="edit-profile-new-pw" placeholder="Nouveau mot de passe" style="margin-top:4px">
             </div>
             <div class="form-group" style="margin-bottom:10px">
-              <label style="font-size:12px;font-weight:600">Confirmer nouveau mot de passe</label>
+              <label style="font-size:12px;font-weight:600">Confirmer</label>
               <input type="password" id="edit-profile-new-pw2" placeholder="Confirmer" style="margin-top:4px">
             </div>
           </div>
@@ -281,7 +285,6 @@
             <button id="cancel-edit-profile-btn" class="backup-btn-alt" style="flex:1;font-size:13px;padding:9px"><i class="fas fa-times"></i> Annuler</button>
           </div>
         </div>
-        <!-- Supprimer compte -->
         <div style="border-top:1px solid var(--border-color);padding-top:12px;margin-top:14px">
           <button id="delete-account-btn" class="danger-btn-alt" style="font-size:12px;padding:9px 14px"><i class="fas fa-user-slash"></i> Supprimer mon compte</button>
         </div>
@@ -321,11 +324,11 @@
           <span>Activer les effets sonores</span>
         </label>
       </div>
-      <!-- Notifications -->
+      <!-- Notifications Push -->
       <div class="setting-item">
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-          <input type="checkbox" id="notification-toggle" style="width:18px;height:18px;accent-color:var(--primary-color)">
-          <span>Activer les notifications</span>
+          <input type="checkbox" id="push-toggle" checked style="width:18px;height:18px;accent-color:var(--primary-color)">
+          <span>Activer les notifications push</span>
         </label>
       </div>
     </div>
@@ -340,21 +343,22 @@
       </div>
     </div>
     <div class="modal-body">
-      <!-- Inviter -->
-      <div id="members-invite-section" style="margin-bottom:20px">
+      <!-- Inviter (gestionnaire seulement) -->
+      <div id="invite-section" style="margin-bottom:20px">
         <h3 style="font-size:14px;font-weight:700;color:var(--primary-color);margin-bottom:10px"><i class="fas fa-qrcode"></i> Inviter un Membre</h3>
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Partagez votre QR Code pour inviter un membre.</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Montrez ce QR code au nouveau membre pour qu'il puisse rejoindre.</p>
         <button id="generate-invite-qr-btn" class="backup-btn" style="margin-bottom:10px;width:100%"><i class="fas fa-qrcode"></i> Générer QR d'Invitation</button>
         <div id="invite-qr-container" class="qr-display-box hidden">
           <div id="invite-qrcode" class="qr-canvas-wrapper"></div>
           <button id="download-invite-qr-btn" class="backup-btn-alt" style="padding:6px 12px;font-size:12px;width:auto"><i class="fas fa-download"></i> Télécharger</button>
         </div>
-        <button type="button" class="backup-btn-alt" style="margin-top:10px;width:100%" onclick="startCameraQRScan('join')"><i class="fas fa-camera"></i> Scanner QR pour rejoindre un ménage</button>
       </div>
 
       <!-- Liste membres -->
       <div id="members-list-section">
-        <h3 style="font-size:14px;font-weight:700;color:var(--primary-color);margin-bottom:10px"><i class="fas fa-users"></i> Membres (<span id="members-count">0</span>)</h3>
+        <h3 style="font-size:14px;font-weight:700;color:var(--primary-color);margin-bottom:10px">
+          <i class="fas fa-users"></i> Membres (<span id="members-count">0</span>)
+        </h3>
         <div id="members-list"></div>
       </div>
 
@@ -389,15 +393,10 @@
       </div>
     </div>
     <div class="modal-body settings-body">
-
-      <!-- EXPORT -->
       <div class="setting-item backup-section">
         <h3><i class="fas fa-download" style="margin-right:6px"></i>Exporter</h3>
         <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Sélectionnez les budgets à inclure dans le fichier .menap.</p>
-        <!-- Liste de sélection des budgets -->
-        <div id="export-budget-list" style="margin-bottom:12px;display:flex;flex-direction:column;gap:6px">
-          <div style="font-size:12px;color:var(--text-muted);padding:8px;text-align:center"><i class="fas fa-spinner fa-spin"></i> Chargement…</div>
-        </div>
+        <div id="export-budget-list" style="margin-bottom:12px;display:flex;flex-direction:column;gap:6px"></div>
         <div style="display:flex;gap:8px;margin-bottom:12px">
           <button id="export-select-all" class="backup-btn-alt" style="flex:1;font-size:12px;padding:7px"><i class="fas fa-check-double"></i> Tout</button>
           <button id="export-select-none" class="backup-btn-alt" style="flex:1;font-size:12px;padding:7px"><i class="fas fa-times"></i> Aucun</button>
@@ -405,8 +404,6 @@
         <button id="export-btn" class="backup-btn"><i class="fas fa-download"></i> Exporter .menap sélectionnés</button>
         <button id="export-db-btn" class="backup-btn" style="margin-top:10px"><i class="fas fa-database"></i> Exporter Base SQLite (.db)</button>
       </div>
-
-      <!-- IMPORT -->
       <div class="setting-item backup-section" style="margin-top:20px">
         <h3><i class="fas fa-upload" style="margin-right:6px"></i>Restaurer</h3>
         <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Importez depuis un fichier .menap — choisissez les budgets à restaurer.</p>
@@ -414,40 +411,36 @@
           <input type="file" id="import-file-input" accept=".menap,.dem,.sem,image/*" style="display:none">
           <button id="import-btn-trigger" class="backup-btn-alt"><i class="fas fa-folder-open"></i> Choisir un fichier .menap</button>
         </div>
-        <!-- Aperçu budgets du fichier -->
         <div id="import-preview" style="display:none;margin-top:14px">
-          <p style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--primary-color)"><i class="fas fa-list"></i> Budgets disponibles dans le fichier :</p>
+          <p style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--primary-color)"><i class="fas fa-list"></i> Budgets disponibles :</p>
           <div id="import-budget-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
           <div style="display:flex;gap:8px;margin-bottom:12px">
             <button id="import-select-all" class="backup-btn-alt" style="flex:1;font-size:12px;padding:7px"><i class="fas fa-check-double"></i> Tout</button>
             <button id="import-select-none" class="backup-btn-alt" style="flex:1;font-size:12px;padding:7px"><i class="fas fa-times"></i> Aucun</button>
           </div>
-          <button id="import-confirm-btn" class="save-btn"><i class="fas fa-file-import"></i> Importer les budgets sélectionnés</button>
+          <button id="import-confirm-btn" class="save-btn"><i class="fas fa-upload"></i> Importer les sélectionnés</button>
         </div>
       </div>
-
     </div>
   </div>
 
-  <!-- ═══ À PROPOS ═══ -->
+  <!-- ═══ CONTACT / À PROPOS Modal ═══ -->
   <div id="contact-modal" class="modal" style="display:none">
     <div class="modal-header">
       <div class="modal-title-bar">
         <button id="close-contact"><i class="fas fa-arrow-left"></i></button>
-        <span translate="contact.title">À propos de Menap</span>
+        <span translate="contact.title">À Propos</span>
       </div>
     </div>
-    <div class="modal-body">
-      <div class="info-card">
-        <h3><i class="fas fa-wallet"></i> Menap V2.0</h3>
-        <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px" translate="contact.desc">Budget achataire familial multi-langues.</p>
-        <hr style="margin:12px 0;border-color:var(--border-color)">
-        <div style="font-size:14px;display:flex;flex-direction:column;gap:10px">
-          <div><span style="font-weight:700">Auteur:</span> Emmadiblo</div>
-          <div><span style="font-weight:700">Contact:</span> emmadiblo@gmail.com</div>
-
-         
-        </div>
+    <div class="modal-body" style="text-align:center;padding-top:24px">
+      <div style="font-size:48px;margin-bottom:16px"><i class="fas fa-wallet" style="color:var(--primary-color)"></i></div>
+      <h2 style="font-size:22px;font-weight:700;color:var(--primary-color);margin-bottom:6px">Menap v4.1</h2>
+      <p style="font-size:14px;color:var(--text-muted);margin-bottom:20px">Gestionnaire de budget achataire familial</p>
+      <div style="background:var(--card-bg);border-radius:12px;padding:16px;text-align:left;font-size:13px;color:var(--text-muted)">
+        <div style="margin-bottom:8px"><i class="fas fa-server" style="color:var(--primary-color);width:18px"></i> Serveur : sigra.xo.je</div>
+        <div style="margin-bottom:8px"><i class="fas fa-database" style="color:var(--primary-color);width:18px"></i> SQLite via sql.js</div>
+        <div style="margin-bottom:8px"><i class="fas fa-lock" style="color:var(--primary-color);width:18px"></i> Données chiffrées sur serveur</div>
+        <div><i class="fas fa-users" style="color:var(--primary-color);width:18px"></i> Multi-utilisateurs avec rôles</div>
       </div>
     </div>
   </div>
@@ -463,32 +456,29 @@
     <div class="modal-body">
       <div class="form-group">
         <label translate="budget.name">Nom du Budget</label>
-        <input type="text" id="budget-name" translate-placeholder="budget.name_placeholder" placeholder="Ex: Budget Octobre">
+        <input type="text" id="budget-name" translate-placeholder="budget.name_placeholder" placeholder="Ex: Budget Mai 2026">
       </div>
       <div class="form-group">
         <label translate="budget.start_date">Date de Début</label>
         <input type="date" id="budget-start-date">
       </div>
-      <div class="form-group-row">
-        <div class="form-group" style="flex:2;margin-bottom:0">
-          <label translate="budget.duration">Durée</label>
-          <select id="budget-duration-type">
-            <option value="day" translate="budget.duration_day">Jour(s)</option>
-            <option value="week" translate="budget.duration_week">Semaine(s)</option>
-            <option value="month" selected translate="budget.duration_month">Mois</option>
-            <option value="year" translate="budget.duration_year">Année(s)</option>
+      <div class="form-group">
+        <label translate="budget.duration">Durée</label>
+        <div style="display:flex;gap:10px">
+          <select id="budget-duration-type" style="flex:2">
+            <option value="day" translate="budget.day">Jour(s)</option>
+            <option value="week" translate="budget.week">Semaine(s)</option>
+            <option value="month" translate="budget.month" selected>Mois</option>
+            <option value="year" translate="budget.year">Année(s)</option>
           </select>
-        </div>
-        <div class="form-group" style="width:90px;margin-bottom:0">
-          <label translate="budget.duration_value">Nbre</label>
-          <input type="number" id="budget-duration-val" min="1" value="1">
+          <input type="number" id="budget-duration-val" value="1" min="1" max="24" style="flex:1;text-align:center">
         </div>
       </div>
-      <button id="save-budget-btn" class="save-btn" style="margin-top:16px" translate="budget.save">Créer le Budget</button>
+      <button id="save-budget-btn" class="save-btn" translate="budget.save">Créer le Budget</button>
     </div>
   </div>
 
-  <!-- ═══ Achat Modal ═══ -->
+  <!-- ═══ ITEM Modal ═══ -->
   <div id="item-modal" class="modal" style="display:none">
     <div class="modal-header">
       <div class="modal-title-bar">
@@ -499,7 +489,7 @@
     <div class="modal-body">
       <div class="form-group">
         <label translate="item.name">Nom de l'Achat</label>
-        <input type="text" id="item-name" translate-placeholder="item.name_placeholder" placeholder="Ex: Riz, Huile, Sucre...">
+        <input type="text" id="item-name" placeholder="Ex: Riz, Huile, Sucre...">
         <div id="item-suggestions" class="suggestions-container"></div>
       </div>
       <div id="item-advisor-tip" class="warning-banner hidden" style="margin:10px 0 14px;background:var(--primary-light);border-left-color:var(--primary-color)"></div>
@@ -536,11 +526,11 @@
       </div>
       <div class="form-group">
         <label translate="purchase.qty">Quantité (optionnel)</label>
-        <input type="text" id="purchase-qty" translate-placeholder="purchase.qty_placeholder" placeholder="Ex: 2kg, 3 bouteilles">
+        <input type="text" id="purchase-qty" placeholder="Ex: 2kg, 3 bouteilles">
       </div>
       <div class="form-group">
         <label translate="purchase.note">Note (optionnel)</label>
-        <input type="text" id="purchase-note" translate-placeholder="purchase.note_placeholder" placeholder="Remarque...">
+        <input type="text" id="purchase-note" placeholder="Remarque...">
       </div>
       <button id="save-purchase-btn" class="save-btn" translate="purchase.save">Enregistrer</button>
     </div>
@@ -551,7 +541,7 @@
     <div class="modal-header">
       <div class="modal-title-bar">
         <button id="close-purchases-list-modal"><i class="fas fa-arrow-left"></i></button>
-        <span id="purchases-list-title" translate="item.purchases_title">Liste des Achats</span>
+        <span translate="item.purchases_title">Liste des Achats</span>
       </div>
     </div>
     <div class="modal-body"><div id="purchases-modal-list"></div></div>
@@ -562,7 +552,7 @@
     <div class="modal-header">
       <div class="modal-title-bar">
         <button id="close-refill-modal"><i class="fas fa-arrow-left"></i></button>
-        <span id="refill-modal-title" translate="item.refill_title">Réapprovisionner</span>
+        <span translate="item.refill_title">Réapprovisionner</span>
       </div>
     </div>
     <div class="modal-body">
@@ -581,65 +571,59 @@
         <label translate="purchase.note">Note</label>
         <input type="text" id="refill-note" value="Réappro.">
       </div>
-      <button id="save-refill-btn" class="save-btn" translate="item.refill_btn">Achater</button>
+      <button id="save-refill-btn" class="save-btn" translate="item.refill_btn">Acheter</button>
     </div>
   </div>
 
-        <!-- Smart Draggable Floating Calculator -->
-        <div id="calculator-modal" style="display: none;">
-            <div class="modal-header" id="calculator-drag-header" style="padding: 0;">
-                <div class="modal-title-bar" style="cursor: move;">
-                    <span style="display: inline-flex; align-items: center; gap: 6px;"><i class="fas fa-move"></i> <span translate="calculator.title">Calculator</span></span>
-                    <button id="close-calculator-modal" style="background: none; border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0;"><i class="fas fa-times"></i></button>
-                </div>
-            </div>
-            <div class="modal-body" style="padding: 12px; display: flex; flex-direction: column; gap: 8px;">
-                <div id="calc-preview" class="calc-display" readonly value="0" style="margin-bottom: 2px; height: 44px; font-size: 20px; padding: 6px 12px;">0</div>
-                <input type="text" id="calc-display"  style="font-size: 13px; text-align: right; color: var(--text-muted); min-height: 18px; font-weight: 500; padding: 0 4px; margin-bottom: 2px;">
-                <div class="calculator-grid" style="gap: 6px; margin-top: 0;">
-                    <button class="calc-btn cmd" style="height: 38px; font-size: 16px;" onclick="pressCalc('C')">C</button>
-                    <button class="calc-btn cmd" style="height: 38px; font-size: 16px;" onclick="pressCalc('Backspace')"><i class="fas fa-backspace"></i></button>
-                    <button class="calc-btn op" stylee="height: 38px; font-size: 16px;" onclick="pressCalc('(')">(</button>
-                    <button class="calc-btn op" style="height: 38px; font-size: 16px;" onclick="pressCalc(')')">)</button>
-                    
-                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('7')">7</button>
-                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('8')">8</button>
-                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('9')">9</button>
-                    <button class="calc-btn op" style="height: 38px; font-size: 16px;" onclick="pressCalc('/')">/</button>
-                    
-                    <button class="calc-btn num" style="height:re 38px; font-size: 16px;" onclick="pressCalc('4')">4</button>
-                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('5')">5</button>
-                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('6')">6</button>
-                    <button class="calc-btn op" style="height: 38px; font-size: 16px;" onclick="pressCalc('*')">*</button>
-                    
-                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('1')">1</button>
-                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('2')">2</button>
-                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('3')">3</button>
-                    <button class="calc-btn op" style="height: 38px; font-size: 16px;" onclick="pressCalc('-')">-</button>
-                    
-                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('0')">0</button>
-                    <button class="calc-btn num" style="height: 38px; font-size: 16px;" onclick="pressCalc('.')">.</button>
-                    <button class="calc-btn equal" style="height: 38px; font-size: 16px;" onclick="pressCalc('=')">=</button>
-                    <button class="calc-btn op" style="height: 38px; font-size: 16px;" onclick="pressCalc('+')">+</button>
-                   
-                </div>
-                <button id="calc-insert-btn" class="calc-insert-btn" style="margin-top: 4px; padding: 10px; font-size: 14px;" onclick="insertCalcValue()" translate="calculator.copy_amount">Copier le montant</button>
-            </div>
-        </div>
-
+  <!-- ═══ CALCULATRICE ═══ -->
+  <div id="calculator-modal" style="display:none">
+    <div class="modal-header" id="calculator-drag-header" style="padding:0">
+      <div class="modal-title-bar" style="cursor:move">
+        <span style="display:inline-flex;align-items:center;gap:6px"><i class="fas fa-move"></i> Calculatrice</span>
+        <button id="close-calculator-modal" style="background:none;border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:12px;display:flex;flex-direction:column;gap:8px">
+      <div id="calc-preview" class="calc-display" style="margin-bottom:2px;height:44px;font-size:20px;padding:6px 12px">0</div>
+      <input type="text" id="calc-display" style="font-size:13px;text-align:right;color:var(--text-muted);min-height:18px;font-weight:500;padding:0 4px;margin-bottom:2px" readonly>
+      <div class="calculator-grid" style="gap:6px;margin-top:0">
+        <button class="calc-btn cmd" style="height:38px;font-size:16px" onclick="pressCalc('C')">C</button>
+        <button class="calc-btn cmd" style="height:38px;font-size:16px" onclick="pressCalc('Backspace')"><i class="fas fa-backspace"></i></button>
+        <button class="calc-btn op" style="height:38px;font-size:16px" onclick="pressCalc('(')">(</button>
+        <button class="calc-btn op" style="height:38px;font-size:16px" onclick="pressCalc(')')">)</button>
+        <button class="calc-btn num" style="height:38px;font-size:16px" onclick="pressCalc('7')">7</button>
+        <button class="calc-btn num" style="height:38px;font-size:16px" onclick="pressCalc('8')">8</button>
+        <button class="calc-btn num" style="height:38px;font-size:16px" onclick="pressCalc('9')">9</button>
+        <button class="calc-btn op" style="height:38px;font-size:16px" onclick="pressCalc('/')">/</button>
+        <button class="calc-btn num" style="height:38px;font-size:16px" onclick="pressCalc('4')">4</button>
+        <button class="calc-btn num" style="height:38px;font-size:16px" onclick="pressCalc('5')">5</button>
+        <button class="calc-btn num" style="height:38px;font-size:16px" onclick="pressCalc('6')">6</button>
+        <button class="calc-btn op" style="height:38px;font-size:16px" onclick="pressCalc('*')">×</button>
+        <button class="calc-btn num" style="height:38px;font-size:16px" onclick="pressCalc('1')">1</button>
+        <button class="calc-btn num" style="height:38px;font-size:16px" onclick="pressCalc('2')">2</button>
+        <button class="calc-btn num" style="height:38px;font-size:16px" onclick="pressCalc('3')">3</button>
+        <button class="calc-btn op" style="height:38px;font-size:16px" onclick="pressCalc('-')">−</button>
+        <button class="calc-btn num" style="height:38px;font-size:16px" onclick="pressCalc('0')">0</button>
+        <button class="calc-btn num" style="height:38px;font-size:16px" onclick="pressCalc('.')">.</button>
+        <button class="calc-btn equal" style="height:38px;font-size:16px" onclick="pressCalc('=')">=</button>
+        <button class="calc-btn op" style="height:38px;font-size:16px" onclick="pressCalc('+')">+</button>
+      </div>
+      <button id="calc-insert-btn" class="calc-insert-btn" style="margin-top:4px;padding:10px;font-size:14px" onclick="insertCalcValue()">Copier le montant</button>
+    </div>
+  </div>
 
   <!-- ═══ DRAWER ═══ -->
   <div id="drawer" class="drawer">
     <div class="drawer-header">
       <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
         <div style="position:relative">
-          <img id="drawer-avatar" src="" style="width:64px;height:64px;border-radius:50%;border:2.5px solid white;object-fit:cover;display:none;box-shadow:0 2px 8px rgba(0,0,0,0.3)">
-          <div id="drawer-avatar-fallback" style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;border:2.5px solid white;font-size:28px;color:white"><i class="fas fa-user"></i></div>
+          <img id="drawer-avatar" src="" style="width:64px;height:64px;border-radius:50%;border:2.5px solid white;object-fit:cover;display:none;box-shadow:0 2px 8px rgba(0,0,0,.3)">
+          <div id="drawer-avatar-fallback" style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;border:2.5px solid white;font-size:28px;color:white"><i class="fas fa-user"></i></div>
         </div>
         <div style="text-align:center">
-          <h2 id="drawer-profile-name" style="font-size:18px;font-weight:700;text-shadow:0 2px 4px rgba(0,0,0,0.2)">Menap</h2>
-          <div id="drawer-profile-email" style="font-size:11px;opacity:0.85;word-break:break-all;max-width:200px">—</div>
-          <div id="drawer-role-badge" style="display:none;font-size:11px;margin-top:4px;padding:2px 10px;background:rgba(255,255,255,0.2);border-radius:20px"><i class="fas fa-crown" style="margin-right:4px"></i>Gestionnaire</div>
+          <h2 id="drawer-profile-name" style="font-size:18px;font-weight:700;text-shadow:0 2px 4px rgba(0,0,0,.2)">Menap</h2>
+          <div id="drawer-profile-email" style="font-size:11px;opacity:.85;word-break:break-all;max-width:200px">—</div>
+          <div id="drawer-role-badge" style="display:none;font-size:11px;margin-top:4px;padding:2px 10px;background:rgba(255,255,255,.2);border-radius:20px"><i class="fas fa-crown" style="margin-right:4px"></i>Gestionnaire</div>
         </div>
       </div>
     </div>
@@ -648,7 +632,7 @@
       <div class="drawer-item" id="nav-budgets"><i class="fas fa-folder-open"></i><span translate="nav.budgets">Tous les Budgets</span></div>
       <div class="drawer-item" id="nav-members"><i class="fas fa-users"></i><span translate="nav.members">Membres du Ménage</span></div>
       <div class="drawer-item" id="nav-search"><i class="fas fa-search"></i><span translate="nav.search">Rechercher</span></div>
-      <div class="drawer-item" id="nav-backup"><i class="fas fa-database"></i><span translate="settings.export_label">Sauvegarde</span></div>
+      <div class="drawer-item" id="nav-backup"><i class="fas fa-database"></i><span>Sauvegarde</span></div>
       <div class="drawer-item" id="nav-share"><i class="fas fa-share-alt"></i><span translate="nav.share">Partager l'App</span></div>
       <div class="drawer-divider"></div>
       <div class="drawer-item" id="nav-settings"><i class="fas fa-cog"></i><span translate="nav.settings">Paramètres</span></div>
@@ -721,7 +705,6 @@
 
 </div><!-- /#app -->
 
-<!-- Scripts (ordre important) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js"></script>
