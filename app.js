@@ -206,10 +206,22 @@ async function startNimiqCamera() {
   }
 
   try {
+    // S'assurer que le worker CDN est défini avant toute instanciation
+    if (typeof QrScanner !== 'undefined' && !QrScanner.WORKER_PATH) {
+      QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+    }
+
+    // La vidéo doit être visible dans le DOM pour que QrScanner fonctionne
+    if (video) {
+      video.style.width  = '100%';
+      video.style.height = '100%';
+      video.style.objectFit = 'cover';
+    }
+
     _qrScanner = new QrScanner(
       video,
       result => {
-        const data = result.data || result;
+        const data = (result && result.data) ? result.data : String(result);
         const st2 = $('camera-qr-status');
         if (st2) { st2.textContent = '✓ QR détecté !'; st2.style.color = 'var(--success-color, #10b981)'; }
         playSound('qr');
@@ -218,10 +230,11 @@ async function startNimiqCamera() {
       },
       {
         returnDetailedScanResult: true,
-        preferredCamera: 'environment',   // caméra arrière par défaut
-        highlightScanRegion: true,        // cadre visuel sur la zone de scan
-        highlightCodeOutline: true,       // outline autour du QR détecté
-        maxScansPerSecond: 10
+        preferredCamera: 'environment',
+        highlightScanRegion: true,
+        highlightCodeOutline: true,
+        maxScansPerSecond: 8,
+        onDecodeError: () => {} // silence les erreurs "no QR found"
       }
     );
 
